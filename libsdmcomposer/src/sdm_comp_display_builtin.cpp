@@ -1,0 +1,209 @@
+/*
+* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are
+* met:
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*     * Neither the name of The Linux Foundation nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#include <utils/constants.h>
+#include <utils/debug.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include "sdm_comp_display_builtin.h"
+#include "sdm_comp_debugger.h"
+#include "formats.h"
+#include "utils/fence.h"
+
+
+#define __CLASS__ "SDMCompDisplayBuiltIn"
+
+namespace sdm {
+
+SDMCompDisplayBuiltIn::SDMCompDisplayBuiltIn(CoreInterface *core_intf,
+    CallbackInterface *callback, SDMCompDisplayType disp_type, int32_t disp_id)
+    : core_intf_(core_intf), callback_(callback), display_type_(disp_type),
+      display_id_(disp_id) {
+}
+
+int SDMCompDisplayBuiltIn::Init() {
+  int status = 0;
+  DisplayError error = core_intf_->CreateDisplay(display_id_, this, &display_intf_);
+  if (error != kErrorNone) {
+    if (kErrorDeviceRemoved == error) {
+      DLOGW("Display creation cancelled. Display %d-%d removed.", display_id_, display_type_);
+      return -ENODEV;
+    } else {
+      DLOGE("Display create failed. Error = %d display_id = %d event_handler = %p disp_intf = %p",
+            error, display_id_, this, &display_intf_);
+      return -EINVAL;
+    }
+  }
+
+  error = display_intf_->SetDisplayState(kStateOn, false /* tear_down */, NULL /* release_fence */);
+  if (error != kErrorNone) {
+    return -EINVAL;
+  }
+
+  error = display_intf_->SetVSyncState(true /* enable */);
+  if (error != kErrorNone) {
+    return -EINVAL;
+  }
+
+  display_intf_->GetActiveConfig(&active_config_);
+  display_intf_->GetConfig(active_config_, &variable_info_);
+  display_intf_->SetCompositionState(kCompositionGPU, false);
+
+  CreateLayerStack();
+
+  return status;
+}
+
+
+int SDMCompDisplayBuiltIn::Deinit() {
+  DisplayConfigFixedInfo fixed_info = {};
+  display_intf_->GetConfig(&fixed_info);
+  DisplayError error = kErrorNone;
+
+  if (!fixed_info.is_cmdmode) {
+    error = display_intf_->Flush(&layer_stack_);
+    if (error != kErrorNone) {
+      DLOGE("Flush failed. Error = %d", error);
+      return -EINVAL;
+    }
+  }
+
+  DestroyLayerStack();
+  error = core_intf_->DestroyDisplay(display_intf_);
+  if (error != kErrorNone) {
+    DLOGE("Display destroy failed. Error = %d", error);
+    return -EINVAL;
+  }
+  return 0;
+}
+
+int SDMCompDisplayBuiltIn::GetDisplayAttributes(SDMCompDisplayAttributes *display_attributes) {
+  display_attributes->x_res = variable_info_.x_pixels;
+  display_attributes->y_res = variable_info_.y_pixels;
+  display_attributes->x_dpi = variable_info_.x_dpi;
+  display_attributes->y_dpi = variable_info_.y_dpi;
+  display_attributes->vsync_period = variable_info_.vsync_period_ns;
+  display_attributes->is_yuv = variable_info_.is_yuv;
+
+  return 0;
+}
+
+int SDMCompDisplayBuiltIn::ShowBuffer(BufferHandle *buf_handle, int32_t *retire_fence) {
+  int status = PrepareLayerStack(buf_handle);
+  if (status != 0) {
+    DLOGE("PrepareLayerStack failed %d", status);
+    return status;
+  }
+
+  DisplayError error = display_intf_->Prepare(&layer_stack_);
+  if (error != kErrorNone) {
+      DLOGW("Prepare failed. Error = %d", error);
+      return -EINVAL;
+  }
+
+  error = display_intf_->Commit(&layer_stack_);
+  if (error != kErrorNone) {
+      DLOGW("Commit failed. Error = %d", error);
+      return -EINVAL;
+  }
+  Layer *layer = layer_stack_.layers.at(0);
+  *retire_fence = Fence::Dup(layer_stack_.retire_fence);
+  buf_handle->consumer_fence_fd = Fence::Dup(layer->input_buffer.release_fence);
+
+  return 0;
+}
+
+void SDMCompDisplayBuiltIn::CreateLayerStack() {
+  Layer *layer = new Layer();
+  layer->flags.updating = 1;
+
+  layer->src_rect = LayerRect(0, 0, variable_info_.x_pixels, variable_info_.y_pixels);
+  layer->dst_rect = layer->src_rect;
+
+  layer->input_buffer = {};
+  layer->input_buffer.width = variable_info_.x_pixels;
+  layer->input_buffer.height = variable_info_.y_pixels;
+  layer->input_buffer.unaligned_width = variable_info_.x_pixels;
+  layer->input_buffer.unaligned_height = variable_info_.y_pixels;
+  layer->input_buffer.format = kFormatInvalid;
+  layer->input_buffer.planes[0].fd = -1;
+  layer->input_buffer.handle_id = -1;
+  layer->frame_rate = variable_info_.fps;
+  layer->blending = kBlendingPremultiplied;
+
+  layer_stack_.layers.push_back(layer);
+}
+
+void SDMCompDisplayBuiltIn::DestroyLayerStack() {
+  // Remove any layer if any and clear layer stack
+  for (Layer *layer : layer_stack_.layers) {
+    delete layer;
+  }
+  layer_stack_.layers.clear();
+}
+
+int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
+  if (!buf_handle) {
+    DLOGE("buf_handle pointer is null");
+    return -EINVAL;
+  }
+  Layer *layer = layer_stack_.layers.at(0);
+  BufferFormat buf_format = GetSDMCompFormat(layer->input_buffer.format);
+
+  layer->input_buffer.width = buf_handle->width;
+  layer->input_buffer.height = buf_handle->height;
+  layer->input_buffer.unaligned_width = buf_handle->width;
+  layer->input_buffer.unaligned_height = buf_handle->height;
+  layer->input_buffer.format = GetSDMFormat(buf_handle->format);
+  layer->input_buffer.planes[0].fd = buf_handle->fd;
+  layer->input_buffer.planes[0].stride = buf_handle->stride_in_bytes;
+  layer->input_buffer.handle_id = buf_handle->buffer_id;
+  layer->input_buffer.buffer_id = buf_handle->buffer_id;
+  layer->frame_rate = variable_info_.fps;
+  layer->blending = kBlendingPremultiplied;
+  layer->src_rect = LayerRect(0, 0, buf_handle->width, buf_handle->height);
+
+  return 0;
+}
+
+DisplayError SDMCompDisplayBuiltIn::HandleEvent(DisplayEvent event) {
+  switch(event) {
+    case kHwErrorAsync:
+      if (callback_ != NULL) {
+        callback_->OnError();
+      }
+      break;
+    default:
+      break;
+  }
+  return kErrorNone;
+}
+
+}  // namespace sdm
