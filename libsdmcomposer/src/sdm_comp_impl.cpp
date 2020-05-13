@@ -141,6 +141,28 @@ int SDMCompImpl::ShowBuffer(Handle disp_hnd, BufferHandle *buf_handle, int32_t *
   return sdm_comp_display->ShowBuffer(buf_handle, retire_fence);
 }
 
+int SDMCompImpl::SetColorModeWithRenderIntent(Handle disp_hnd, struct ColorMode mode)
+{
+  if (!disp_hnd) {
+    DLOGE("Invalid input param disp_hnd %d", disp_hnd);
+    return -EINVAL;
+  }
+
+  SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
+  return sdm_comp_display->SetColorModeWithRenderIntent(mode);
+}
+
+int SDMCompImpl::GetColorModes(Handle disp_hnd, uint32_t *out_num_modes,
+                               struct ColorMode *out_modes)
+{
+  if (!disp_hnd || !out_num_modes || !out_modes) {
+    DLOGE("Invalid input param disp_hnd %d, out_num_modes %d, out_modes %d", disp_hnd, out_num_modes,
+          out_modes);
+    return -EINVAL;
+  }
+
+  SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
+  return sdm_comp_display->GetColorModes(out_num_modes, out_modes);
+}
+
 }  // namespace sdm
-
-
