@@ -40,10 +40,10 @@
 
 namespace sdm {
 
-DisplayError SDMCompBufferAllocator::AllocateBuffer(BufferInfo *buffer_info) {
+int SDMCompBufferAllocator::AllocateBuffer(BufferInfo *buffer_info) {
   AllocInterface *alloc_intf = AllocInterface::GetInstance();
   if (!alloc_intf) {
-    return kErrorMemory;
+    return -ENOMEM;
   }
   const BufferConfig &buffer_config = buffer_info->buffer_config;
   AllocatedBufferInfo *alloc_buffer_info = &buffer_info->alloc_buffer_info;
@@ -60,7 +60,7 @@ DisplayError SDMCompBufferAllocator::AllocateBuffer(BufferInfo *buffer_info) {
     DLOGE("Allocation failed WxHxF %dx%dx%d, uncached %d", data.width, data.height, data.format,
           data.uncached);
     delete buffer_handle;
-    return kErrorMemory;
+    return -ENOMEM;
   }
 
   alloc_buffer_info->fd = buffer_handle->fd;
@@ -72,13 +72,13 @@ DisplayError SDMCompBufferAllocator::AllocateBuffer(BufferInfo *buffer_info) {
   alloc_buffer_info->id = buffer_handle->buffer_id;
   buffer_info->private_data = buffer_handle;
 
-  return kErrorNone;
+  return 0;
 }
 
-DisplayError SDMCompBufferAllocator::FreeBuffer(BufferInfo *buffer_info) {
+int SDMCompBufferAllocator::FreeBuffer(BufferInfo *buffer_info) {
   AllocInterface *alloc_intf = AllocInterface::GetInstance();
   if (!alloc_intf) {
-    return kErrorMemory;
+    return -ENOMEM;
   }
   AllocatedBufferInfo &alloc_buffer_info = buffer_info->alloc_buffer_info;
   BufferHandle *buffer_handle = reinterpret_cast<BufferHandle *>(buffer_info->private_data);
@@ -89,7 +89,7 @@ DisplayError SDMCompBufferAllocator::FreeBuffer(BufferInfo *buffer_info) {
   alloc_buffer_info.stride = 0;
   alloc_buffer_info.size = 0;
   buffer_info->private_data = NULL;
-  return kErrorNone;
+  return 0;
 }
 
 uint32_t SDMCompBufferAllocator::GetBufferSize(BufferInfo *buffer_info) {
@@ -102,7 +102,7 @@ uint32_t SDMCompBufferAllocator::GetBufferSize(BufferInfo *buffer_info) {
   return (aligned_w * aligned_h * GetBpp(buf_format));
 }
 
-DisplayError SDMCompBufferAllocator::GetAllocatedBufferInfo(
+int SDMCompBufferAllocator::GetAllocatedBufferInfo(
   const BufferConfig &buffer_config, AllocatedBufferInfo *allocated_buffer_info) {
   uint32_t aligned_w = 0;
   uint32_t aligned_h = 0;
@@ -114,14 +114,13 @@ DisplayError SDMCompBufferAllocator::GetAllocatedBufferInfo(
   allocated_buffer_info->aligned_height = aligned_h;
   allocated_buffer_info->size = (aligned_w * aligned_h * GetBpp(buf_format));
 
-  return kErrorNone;
+  return 0;
 }
 
-DisplayError SDMCompBufferAllocator::GetBufferLayout(const AllocatedBufferInfo &buf_info,
-                                                     uint32_t stride[4], uint32_t offset[4],
-                                                     uint32_t *num_planes) {
+int SDMCompBufferAllocator::GetBufferLayout(const AllocatedBufferInfo &buf_info, uint32_t stride[4],
+                                            uint32_t offset[4], uint32_t *num_planes) {
   if (!num_planes) {
-    return kErrorParameters;
+    return -EINVAL;
   }
   BufferFormat buf_format = GetSDMCompFormat(buf_info.format);
 
@@ -129,7 +128,7 @@ DisplayError SDMCompBufferAllocator::GetBufferLayout(const AllocatedBufferInfo &
   stride[0] = static_cast<uint32_t>(buf_info.aligned_width * GetBpp(buf_format));
   offset[0] = 0;
 
-  return kErrorNone;
+  return 0;
 }
 
 void SDMCompBufferAllocator::GetAlignedWidthAndHeight(int width, int height,

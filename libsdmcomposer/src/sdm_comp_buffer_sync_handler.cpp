@@ -40,11 +40,11 @@
 
 namespace sdm {
 
-DisplayError SDMCompBufferSyncHandler::SyncWait(int fd) {
+int SDMCompBufferSyncHandler::SyncWait(int fd) {
   return SyncWait(fd, 1000);
 }
 
-DisplayError SDMCompBufferSyncHandler::SyncWait(int fd, int timeout) {
+int SDMCompBufferSyncHandler::SyncWait(int fd, int timeout) {
   int error = 0;
 
   if (fd >= 0) {
@@ -52,16 +52,14 @@ DisplayError SDMCompBufferSyncHandler::SyncWait(int fd, int timeout) {
     if (error < 0) {
       DLOGE("sync_wait() error on fd = %d, timeout = %dms. (errno = %d \"%s\")", fd, timeout, errno,
             strerror(errno));
-      return kErrorTimeOut;
+      return error;
     }
   }
 
-  return kErrorNone;
+  return 0;
 }
 
-DisplayError SDMCompBufferSyncHandler::SyncMerge(int fd1, int fd2, int *merged_fd) {
-  DisplayError error = kErrorNone;
-
+int SDMCompBufferSyncHandler::SyncMerge(int fd1, int fd2, int *merged_fd) {
   // Merge the two fences.  In the case where one of the fences is not a
   // valid fence (e.g. NO_FENCE) merge the one valid fence with itself so
   // that a new fence with the given name is created.
@@ -75,15 +73,15 @@ DisplayError SDMCompBufferSyncHandler::SyncMerge(int fd1, int fd2, int *merged_f
     *merged_fd = sync_merge("SyncMerge", fd2, fd2);
   } else {
     *merged_fd = -1;
-    return kErrorNone;
+    return 0;
   }
 
   if (*merged_fd == -1) {
     DLOGE("Sync merge error! fd1 %d fd2 %d", fd1, fd2);
-    error = kErrorFileDescriptor;
+    return -EINVAL;
   }
 
-  return error;
+  return 0;
 }
 
 bool SDMCompBufferSyncHandler::IsSyncSignaled(int fd) {

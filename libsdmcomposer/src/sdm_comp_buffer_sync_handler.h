@@ -43,9 +43,9 @@ class SDMCompBufferSyncHandler : public BufferSyncHandler {
  public:
   SDMCompBufferSyncHandler() { Fence::Set(this); }
 
-  virtual DisplayError SyncWait(int fd);
-  virtual DisplayError SyncWait(int fd, int timeout);
-  virtual DisplayError SyncMerge(int fd1, int fd2, int *merged_fd);
+  virtual int SyncWait(int fd);
+  virtual int SyncWait(int fd, int timeout);
+  virtual int SyncMerge(int fd1, int fd2, int *merged_fd);
   virtual bool IsSyncSignaled(int fd);
   virtual void GetSyncInfo(int fd, std::ostringstream *os) { };
 };

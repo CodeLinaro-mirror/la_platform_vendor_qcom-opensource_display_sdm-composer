@@ -44,13 +44,13 @@ inline Type ALIGN(Type x, Type align) {
 
 class SDMCompBufferAllocator : public BufferAllocator {
  public:
-  virtual DisplayError AllocateBuffer(BufferInfo *buffer_info);
-  virtual DisplayError FreeBuffer(BufferInfo *buffer_info);
+  virtual int AllocateBuffer(BufferInfo *buffer_info);
+  virtual int FreeBuffer(BufferInfo *buffer_info);
   virtual uint32_t GetBufferSize(BufferInfo *buffer_info);
-  virtual DisplayError GetAllocatedBufferInfo(const BufferConfig &buffer_config,
-                                              AllocatedBufferInfo *allocated_buffer_info);
-  virtual DisplayError GetBufferLayout(const AllocatedBufferInfo &buf_info, uint32_t stride[4],
-                                       uint32_t offset[4], uint32_t *num_planes);
+  virtual int GetAllocatedBufferInfo(const BufferConfig &buffer_config,
+                                     AllocatedBufferInfo *allocated_buffer_info);
+  virtual int GetBufferLayout(const AllocatedBufferInfo &buf_info, uint32_t stride[4],
+                              uint32_t offset[4], uint32_t *num_planes);
 
  private:
   void GetAlignedWidthAndHeight(int width, int height, uint32_t *aligned_width,
