@@ -194,15 +194,7 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
 }
 
 DisplayError SDMCompDisplayBuiltIn::HandleEvent(DisplayEvent event) {
-  switch(event) {
-    case kHwErrorAsync:
-      if (callback_ != NULL) {
-        callback_->OnError();
-      }
-      break;
-    default:
-      break;
-  }
+  DLOGI_IF(kTagDisplay, "Received display event %d", event);
   return kErrorNone;
 }
 
