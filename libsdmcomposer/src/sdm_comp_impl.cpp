@@ -58,11 +58,6 @@ int SDMCompImpl::CreateDisplay(SDMCompDisplayType display_type, CallbackInterfac
 
   int status = 0;
 
-  if (display_builtin_[display_type]) {
-    *disp_hnd = display_builtin_[display_type];
-    return status;
-  }
-
   HWDisplaysInfo hw_displays_info = {};
   DisplayError error = core_intf_->GetDisplaysStatus(&hw_displays_info);
   if (error != kErrorNone) {
@@ -87,15 +82,15 @@ int SDMCompImpl::CreateDisplay(SDMCompDisplayType display_type, CallbackInterfac
     }
 
     DLOGI("Create builtin display, id = %d, type = %d", info.display_id, display_type);
-    display_builtin_[display_type] = new SDMCompDisplayBuiltIn(core_intf_, callback,
+    SDMCompDisplayBuiltIn *display_builtin = new SDMCompDisplayBuiltIn(core_intf_, callback,
                                                                display_type, info.display_id);
-    status = display_builtin_[display_type]->Init();
+    status = display_builtin->Init();
     if (status) {
-      delete display_builtin_[display_type];
-      display_builtin_[display_type] = nullptr;
+      delete display_builtin;
+      display_builtin = nullptr;
       return status;
     }
-    *disp_hnd = display_builtin_[display_type];
+    *disp_hnd = display_builtin;
     break;
   }
 

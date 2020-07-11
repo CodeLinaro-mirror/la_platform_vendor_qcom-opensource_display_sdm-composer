@@ -32,7 +32,6 @@
 #include "sdm_comp_buffer_allocator.h"
 #include "sdm_comp_interface.h"
 #include "core/display_interface.h"
-#include "sdm_comp_display_builtin.h"
 
 namespace sdm {
 
@@ -56,7 +55,6 @@ class SDMCompImpl : public SDMCompInterface {
   CoreInterface *core_intf_ = nullptr;
   SDMCompBufferAllocator buffer_allocator_;
   SDMCompBufferSyncHandler buffer_sync_handler_;
-  SDMCompDisplayBuiltIn *display_builtin_[kSDMCompDisplayTypeMax] = { nullptr };
 };
 
 }  // namespace sdm
