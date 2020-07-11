@@ -42,6 +42,7 @@ class IonAllocator : public AllocInterface {
   virtual int MapBuffer(int fd, unsigned int size, void **base);
   virtual int UnmapBuffer(void *base, unsigned int size);
   virtual int SyncBuffer(CacheOp op, int fd);
+  virtual int CloneBuffer (const CloneData &data, BufferHandle *buffer_handle);
 
   static IonAllocator *GetInstance();
 
