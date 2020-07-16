@@ -49,6 +49,9 @@ class SDMCompImpl : public SDMCompInterface {
   virtual int DestroyDisplay(Handle disp_hnd);
   virtual int GetDisplayAttributes(Handle disp_hnd, SDMCompDisplayAttributes *display_attributes);
   virtual int ShowBuffer(Handle disp_hnd, BufferHandle *buf_handle, int32_t *retire_fence);
+  virtual int SetColorModeWithRenderIntent(Handle disp_hnd, struct ColorMode mode);
+  virtual int GetColorModes(Handle disp_hnd, uint32_t *out_num_modes,
+                            struct ColorMode *out_modes);
 
   CoreInterface *core_intf_ = nullptr;
   SDMCompBufferAllocator buffer_allocator_;

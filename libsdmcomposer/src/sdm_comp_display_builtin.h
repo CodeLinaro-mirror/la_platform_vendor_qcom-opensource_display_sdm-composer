@@ -38,6 +38,7 @@
 #include "core/core_interface.h"
 #include "core/sdm_types.h"
 #include "sdm_comp_interface.h"
+#include "private/color_params.h"
 
 namespace sdm {
 
@@ -57,11 +58,18 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   int Deinit();
   int GetDisplayAttributes(SDMCompDisplayAttributes *display_attributes);
   int ShowBuffer(BufferHandle *buf_handle, int32_t *out_release_fence);
+  DisplayError SetColorModeWithRenderIntent(struct ColorMode mode);
+  DisplayError GetColorModes(uint32_t *out_num_modes,
+                        struct ColorMode *out_modes);
 
  private:
   void CreateLayerStack();
   void DestroyLayerStack();
   int PrepareLayerStack(BufferHandle *buf_handle);
+
+  void PopulateColorModes();
+  DisplayError GetStcColorModeFromMap(const ColorMode &mode, snapdragoncolor::ColorMode *out_mode);
+  DisplayError ApplyCurrentColorModeWithRenderIntent();
 
   CoreInterface *core_intf_ = NULL;
   DisplayInterface *display_intf_ = NULL;
@@ -71,6 +79,14 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   int display_id_ = -1;
   LayerStack layer_stack_ = {};
   uint32_t active_config_ = 0xFFFFFFFF;
+
+  bool apply_mode_ = false;
+  ColorMode current_mode_ = {};
+  snapdragoncolor::ColorModeList stc_mode_list_ = {};
+  typedef std::map<RenderIntent, snapdragoncolor::ColorMode> RenderIntentMap;
+  typedef std::map<GammaTransfer, RenderIntentMap> TransferMap;
+  std::map<ColorPrimaries, TransferMap> color_mode_map_ = {};
+
 };
 
 }  // namespace sdm
