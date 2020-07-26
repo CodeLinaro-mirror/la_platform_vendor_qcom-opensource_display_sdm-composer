@@ -192,7 +192,8 @@ void SDMCompDebugHandler::Error(const char *format, ...) {
 #else
   char buffer[1024];
   vsnprintf (buffer, 1024, format, list);
-  printf("%s W %s \n", LOG_TAG, buffer);
+  // TODO(user): print timestamp, process id and thread id
+  printf("%s E %s \n", LOG_TAG, buffer);
 #endif
   va_end(list);
 }

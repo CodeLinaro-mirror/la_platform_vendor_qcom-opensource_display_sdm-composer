@@ -332,6 +332,9 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
   layer->blending = kBlendingPremultiplied;
   layer->src_rect = LayerRect(0, 0, buf_handle->width, buf_handle->height);
 
+  DLOGI("WxHxF %dx%dx%d", layer->input_buffer.width, layer->input_buffer.height,
+        layer->input_buffer.format);
+
   return 0;
 }
 

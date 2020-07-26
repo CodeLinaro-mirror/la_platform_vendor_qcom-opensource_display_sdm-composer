@@ -33,28 +33,43 @@ enum BufferFormat {
   /* All RGB formats, Any new format will be added towards end of this group to maintain backward
      compatibility.
   */
-  kBufferFormatInvalid = -1,  // Invalid buffer format
-  kBufferFormatARGB8888,      // 8-bits Alpha, Red, Green, Blue interleaved in ARGB order.
-  kBufferFormatRGBA8888,      // 8-bits Red, Green, Blue, Alpha interleaved in RGBA order.
-  kBufferFormatBGRA8888,      // 8-bits Blue, Green, Red, Alpha interleaved in BGRA order.
-  kBufferFormatXRGB8888,      // 8-bits Padding, Red, Green, Blue interleaved in XRGB order. NoAlpha
-  kBufferFormatRGBX8888,      // 8-bits Red, Green, Blue, Padding interleaved in RGBX order. NoAlpha
-  kBufferFormatBGRX8888,      // 8-bits Blue, Green, Red, Padding interleaved in BGRX order. NoAlpha
-  kBufferFormatRGBA5551,      // 5-bits Red, Green, Blue, and 1 bit Alpha interleaved in RGBA order.
-  kBufferFormatRGBA4444,      // 4-bits Red, Green, Blue, Alpha interleaved in RGBA order.
-  kBufferFormatRGB888,        // 8-bits Red, Green, Blue interleaved in RGB order. No Alpha.
-  kBufferFormatBGR888,        // 8-bits Blue, Green, Red interleaved in BGR order. No Alpha.
-  kBufferFormatRGB565,        // 5-bit Red, 6-bit Green, 5-bit Blue interleaved in RGB order. NoAlpha
-  kBufferFormatBGR565,        // 5-bit Blue, 6-bit Green, 5-bit Red interleaved in BGR order. NoAlpha
-  kBufferFormatRGBA1010102,   // 10-bits Red, Green, Blue, Alpha interleaved in RGBA order.
-  kBufferFormatARGB2101010,   // 10-bits Alpha, Red, Green, Blue interleaved in ARGB order.
-  kBufferFormatRGBX1010102,   // 10-bits Red, Green, Blue, Padding interleaved in RGBX order. NoAlpha
-  kBufferFormatXRGB2101010,   // 10-bits Padding, Red, Green, Blue interleaved in XRGB order. NoAlpha
-  kBufferFormatBGRA1010102,   // 10-bits Blue, Green, Red, Alpha interleaved in BGRA order.
-  kBufferFormatABGR2101010,   // 10-bits Alpha, Blue, Green, Red interleaved in ABGR order.
-  kBufferFormatBGRX1010102,   // 10-bits Blue, Green, Red, Padding interleaved in BGRX order. NoAlpha
-  kBufferFormatXBGR2101010,   // 10-bits Padding, Blue, Green, Red interleaved in XBGR order. NoAlpha
-  kBufferFormatRGB101010,     // 10-bits Red, Green, Blue, interleaved in RGB order. No Alpha.
+  kBufferFormatInvalid = -1,     //!< Invalid buffer format
+  kBufferFormatARGB8888,         //!< 8-bits Alpha, Red, Green, Blue interleaved in ARGB order.
+  kBufferFormatRGBA8888,         //!< 8-bits Red, Green, Blue, Alpha interleaved in RGBA order.
+  kBufferFormatBGRA8888,         //!< 8-bits Blue, Green, Red, Alpha interleaved in BGRA order.
+  kBufferFormatXRGB8888,         //!< 8-bits Padding, Red, Green, Blue interleaved in XRGB order.
+                                 //!< NoAlpha.
+  kBufferFormatRGBX8888,         //!< 8-bits Red, Green, Blue, Padding interleaved in RGBX order.
+                                 //!< NoAlpha.
+  kBufferFormatBGRX8888,         //!< 8-bits Blue, Green, Red, Padding interleaved in BGRX order.
+                                 //!< NoAlpha.
+  kBufferFormatRGBA5551,         //!< 5-bits Red, Green, Blue, and 1 bit Alpha interleaved in
+                                 //!< RGBA order.
+  kBufferFormatRGBA4444,         //!< 4-bits Red, Green, Blue, Alpha interleaved in RGBA order.
+  kBufferFormatRGB888,           //!< 8-bits Red, Green, Blue interleaved in RGB order. No Alpha.
+  kBufferFormatBGR888,           //!< 8-bits Blue, Green, Red interleaved in BGR order. No Alpha.
+  kBufferFormatRGB565,           //!< 5-bit Red, 6-bit Green, 5-bit Blue interleaved in RGB order.
+                                 //!< NoAlpha.
+  kBufferFormatBGR565,           //!< 5-bit Blue, 6-bit Green, 5-bit Red interleaved in BGR order.
+                                 //!< NoAlpha.
+  kBufferFormatRGBA1010102,      //!< 10-bits Red, Green, Blue, Alpha interleaved in RGBA order.
+  kBufferFormatARGB2101010,      //!< 10-bits Alpha, Red, Green, Blue interleaved in ARGB order.
+  kBufferFormatRGBX1010102,      //!< 10-bits Red, Green, Blue, Padding interleaved in RGBX order.
+                                 //!< NoAlpha.
+  kBufferFormatXRGB2101010,      //!< 10-bits Padding, Red, Green, Blue interleaved in XRGB order.
+                                 //!< NoAlpha.
+  kBufferFormatBGRA1010102,      //!< 10-bits Blue, Green, Red, Alpha interleaved in BGRA order.
+  kBufferFormatABGR2101010,      //!< 10-bits Alpha, Blue, Green, Red interleaved in ABGR order.
+  kBufferFormatBGRX1010102,      //!< 10-bits Blue, Green, Red, Padding interleaved in BGRX order.
+                                 //!< NoAlpha.
+  kBufferFormatXBGR2101010,      //!< 10-bits Padding, Blue, Green, Red interleaved in XBGR order.
+                                 //!< NoAlpha.
+  kBufferFormatRGB101010,        //!< 10-bits Red, Green, Blue, interleaved in RGB order. No Alpha.
+  kBufferFormatRGBA8888Ubwc,     //!< UBWC aligned RGBA8888 format
+  kBufferFormatRGBX8888Ubwc,     //!< UBWC aligned RGBX8888 format
+  kBufferFormatBGR565Ubwc,       //!< UBWC aligned BGR565 format
+  kBufferFormatRGBA1010102Ubwc,  //!< UBWC aligned RGBA1010102 format
+  kBufferFormatRGBX1010102Ubwc,  //!< UBWC aligned RGBX1010102 format
 };
 
 struct BufferHandle {
