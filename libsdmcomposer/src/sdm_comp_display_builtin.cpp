@@ -68,12 +68,6 @@ int SDMCompDisplayBuiltIn::Init() {
     goto cleanup;
   }
 
-  error = display_intf_->SetVSyncState(true /* enable */);
-  if (error != kErrorNone) {
-    status = -EINVAL;
-    goto cleanup;
-  }
-
   display_intf_->GetActiveConfig(&active_config_);
   display_intf_->GetConfig(active_config_, &variable_info_);
   display_intf_->SetCompositionState(kCompositionGPU, false);
