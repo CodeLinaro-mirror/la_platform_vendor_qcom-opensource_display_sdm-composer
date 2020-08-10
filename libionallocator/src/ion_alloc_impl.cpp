@@ -227,6 +227,37 @@ int IonAllocator::UnmapBuffer(void *base, unsigned int size) {
   return err;
 }
 
+int IonAllocator::CloneBuffer(const CloneData &data, BufferHandle *buffer_handle) {
+  if (!buffer_handle) {
+    DLOGE("Invalid parameter data %p buffer_handle %p", buffer_handle);
+    return -EINVAL;
+  }
+
+  DLOGD_IF(DEBUG, "CloneData WxHxF %dx%dx%d fd %d", data.width, data.height, data.format, data.fd);
+
+  int err = 0;
+  uint32_t aligned_w = 0;
+  uint32_t aligned_h = 0;
+  GetAlignedWidthAndHeight(data.width, data.height, &aligned_w, &aligned_h);
+  uint32_t size = GetBufferSize(data.width, data.height, data.format);
+
+  buffer_handle->fd = dup(data.fd);
+  buffer_handle->width = data.width;
+  buffer_handle->height = data.height;
+  buffer_handle->format = data.format;
+  buffer_handle->aligned_width = aligned_w;
+  buffer_handle->aligned_height = aligned_h;
+  buffer_handle->size = size;
+  buffer_handle->stride_in_bytes = aligned_w * GetBpp(data.format);
+  buffer_handle->buffer_id = id_++;
+
+  DLOGD_IF(DEBUG, "Cloned buffer Aligned WxHxF %dx%dx%d stride_in_bytes %d size:%u fd:%d",
+           buffer_handle->aligned_width, buffer_handle->aligned_height, buffer_handle->format,
+           buffer_handle->stride_in_bytes, buffer_handle->size, buffer_handle->fd);
+
+  return 0;
+}
+
 void IonAllocator::GetIonHeapInfo(AllocData *data, uint32_t *ion_heap_id,
                                          uint32_t *ion_flags) {
   uint32_t heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID);

@@ -62,6 +62,13 @@ struct AllocData {
   UsageHints usage_hints;         //!< Hints to know about the producer of the buffer
 };
 
+struct CloneData {
+  int fd = -1;                    //!< Buffer fd to be cloned.
+  uint32_t width;                 //!< Width of the buffer to be cloned.
+  uint32_t height;                //!< Height of the buffer to be cloned.
+  BufferFormat format;            //!< Format of the buffer to be cloned.
+};
+
 class AllocInterface {
  public:
   /*! @brief Method to get the instance of allocator interface.
@@ -122,6 +129,15 @@ class AllocInterface {
     @return Returns 0 on sucess otherwise errno
   */
   virtual int SyncBuffer(CacheOp op, int fd) = 0;
+
+  /*! @brief This function helps to clone the buffer handle for the given buffer parameters
+
+    @param[in] clone_data - \link CloneData \endlink
+    @param[out] buffer_handle - \link BufferHandle \endlink
+
+    @return Returns 0 on sucess otherwise errno
+  */
+  virtual int CloneBuffer(const CloneData &clone_data, BufferHandle *buffer_handle) = 0;
 
  protected:
   virtual ~AllocInterface() { }
