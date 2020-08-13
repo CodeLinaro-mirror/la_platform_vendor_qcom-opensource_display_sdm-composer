@@ -26,22 +26,43 @@
 #include "core/sdm_types.h"
 #include "sdm_comp_display_builtin.h"
 #include "debug_handler.h"
+#include "sdm_comp_service.h"
+
+#include <thread>
 
 #define __CLASS__ "SDMCompImpl"
 
 namespace sdm {
 
 int SDMCompImpl::Init() {
+  sdm_comp_service_ = new SDMCompService(this);
+  int ret = sdm_comp_service_->Init();
+  if (ret != 0) {
+    DLOGE("SDMCompService Init failed!! %d\n", ret);
+    return ret;
+  }
+  std::thread ([=] { SDMCompService::QRTREventHandler(sdm_comp_service_); }).detach();
+
   DisplayError error = CoreInterface::CreateCore(&buffer_allocator_, &buffer_sync_handler_,
                                                  NULL, &core_intf_);
   if (error != kErrorNone) {
     DLOGE("Failed to create CoreInterface");
+    sdm_comp_service_->Deinit();
+    delete sdm_comp_service_;
+    sdm_comp_service_ = nullptr;
     return -EINVAL;
   }
+
   return 0;
 }
 
 int SDMCompImpl::Deinit() {
+  if (sdm_comp_service_) {
+    sdm_comp_service_->Deinit();
+    delete sdm_comp_service_;
+    sdm_comp_service_ = nullptr;
+  }
+
   DisplayError error = CoreInterface::DestroyCore();
   if (error != kErrorNone) {
     DLOGE("Display core de-initialization failed. Error = %d", error);
