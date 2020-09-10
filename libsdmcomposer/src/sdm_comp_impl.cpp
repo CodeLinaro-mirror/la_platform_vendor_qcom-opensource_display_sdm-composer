@@ -35,6 +35,7 @@
 namespace sdm {
 
 int SDMCompImpl::Init() {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
   sdm_comp_service_ = new SDMCompService(this);
   int ret = sdm_comp_service_->Init();
   if (ret != 0) {
@@ -57,6 +58,7 @@ int SDMCompImpl::Init() {
 }
 
 int SDMCompImpl::Deinit() {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
   if (sdm_comp_service_) {
     sdm_comp_service_->Deinit();
     delete sdm_comp_service_;
@@ -73,6 +75,7 @@ int SDMCompImpl::Deinit() {
 
 int SDMCompImpl::CreateDisplay(SDMCompDisplayType display_type, CallbackInterface *callback,
                                Handle *disp_hnd) {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
   if (!disp_hnd || display_type >= kSDMCompDisplayTypeMax) {
     return -EINVAL;
   }
@@ -119,6 +122,7 @@ int SDMCompImpl::CreateDisplay(SDMCompDisplayType display_type, CallbackInterfac
 }
 
 int SDMCompImpl::DestroyDisplay(Handle disp_hnd) {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
   if (!disp_hnd) {
     DLOGE("Display handle is NULL");
     return -EINVAL;
@@ -136,6 +140,7 @@ int SDMCompImpl::DestroyDisplay(Handle disp_hnd) {
 
 int SDMCompImpl::GetDisplayAttributes(Handle disp_hnd,
                                           SDMCompDisplayAttributes *display_attributes) {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
   if (!disp_hnd) {
     DLOGE("Invalid input param disp_hnd %d, display_attributes %d", disp_hnd, display_attributes);
     return -EINVAL;
@@ -147,6 +152,7 @@ int SDMCompImpl::GetDisplayAttributes(Handle disp_hnd,
 
 
 int SDMCompImpl::ShowBuffer(Handle disp_hnd, BufferHandle *buf_handle, int32_t *retire_fence) {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
   if (!disp_hnd || !buf_handle || !retire_fence) {
     DLOGE("Invalid input param disp_hnd %d, buf_handle %d, retire_fence %d", disp_hnd, buf_handle,
           retire_fence);
@@ -157,8 +163,8 @@ int SDMCompImpl::ShowBuffer(Handle disp_hnd, BufferHandle *buf_handle, int32_t *
   return sdm_comp_display->ShowBuffer(buf_handle, retire_fence);
 }
 
-int SDMCompImpl::SetColorModeWithRenderIntent(Handle disp_hnd, struct ColorMode mode)
-{
+int SDMCompImpl::SetColorModeWithRenderIntent(Handle disp_hnd, struct ColorMode mode) {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
   if (!disp_hnd) {
     DLOGE("Invalid input param disp_hnd %d", disp_hnd);
     return -EINVAL;
@@ -169,8 +175,8 @@ int SDMCompImpl::SetColorModeWithRenderIntent(Handle disp_hnd, struct ColorMode 
 }
 
 int SDMCompImpl::GetColorModes(Handle disp_hnd, uint32_t *out_num_modes,
-                               struct ColorMode *out_modes)
-{
+                               struct ColorMode *out_modes) {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
   if (!disp_hnd || !out_num_modes || !out_modes) {
     DLOGE("Invalid input param disp_hnd %d, out_num_modes %d, out_modes %d", disp_hnd, out_num_modes,
           out_modes);
