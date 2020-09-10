@@ -6,7 +6,7 @@ AM_CPPFLAGS += "-I$(SDM_PATH)/../libdebug"
 AM_CPPFLAGS += "-I$(SDM_PATH)/../include"
 AM_CPPFLAGS += "-I${WORKSPACE}/vendor/qcom/opensource/commonsys-intf/display/include/"
 AM_CPPFLAGS += "-I$(SDM_PATH)/../libmemutils"
-AM_CPPFLAGS += "-I${WORKSPACE}/qmi-framework/qrtr/lib"
+AM_CPPFLAGS += "-I${PKG_CONFIG_SYSROOT_DIR}/${includedir}/qmi-framework"
 AM_CPPFLAGS += "-I$(SDM_COMP_PATH)/include"
 
 
@@ -25,5 +25,5 @@ libsdmcomposer_la_CFLAGS = $(COMMON_CFLAGS)
 libsdmcomposer_la_CPPFLAGS = $(AM_CPPFLAGS) -DLOG_TAG=\"SDM\"
 libsdmcomposer_la_LIBADD := ../../libformatutils/src/libformatutils.la \
                             ../../libionallocator/src/libionallocator.la
-libsdmcomposer_la_LDFLAGS := -shared -avoid-version -lsdmcore -lsdmutils -lqrtr \
+libsdmcomposer_la_LDFLAGS := -shared -avoid-version -lsdmcore -lsdmutils -ldl \
                              -lpthread -lmemutils

@@ -43,15 +43,31 @@ namespace sdm {
 int SDMCompService::Init() {
   std::lock_guard<std::mutex> lock(qrtr_lock_);
   int err = 0;
+  // Try to load qrtr library & get handle to its interface.
+  if (qrtr_lib_.Open("libqrtr.so.1.0.0")) {
+    if (!qrtr_lib_.Sym("qrtr_open", reinterpret_cast<void **>(&QrtrOpen)) ||
+        !qrtr_lib_.Sym("qrtr_close", reinterpret_cast<void **>(&QrtrClose)) ||
+        !qrtr_lib_.Sym("qrtr_sendto", reinterpret_cast<void **>(&QrtrSendTo)) ||
+        !qrtr_lib_.Sym("qrtr_publish", reinterpret_cast<void **>(&QrtrPublish)) ||
+        !qrtr_lib_.Sym("qrtr_bye", reinterpret_cast<void **>(&QrtrBye)) ||
+        !qrtr_lib_.Sym("qrtr_poll", reinterpret_cast<void **>(&QrtrPoll)) ||
+        !qrtr_lib_.Sym("qrtr_decode", reinterpret_cast<void **>(&QrtrDecode))) {
+      DLOGE("Unable to load symbols, error = %s", qrtr_lib_.Error());
+      return-ENOENT;
+    }
+  } else {
+    DLOGE("Unable to load libqrtr.so, error = %s", qrtr_lib_.Error());
+    return-ENOENT;
+  }
 
-  qrtr_fd_ = qrtr_open(0);
+  qrtr_fd_ = QrtrOpen(0);
   if (qrtr_fd_ < 0) {
     DLOGE("Failed to create qrtr socket");
     err = -EINVAL;
     goto cleanup;
   }
 
-  err = qrtr_publish(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
+  err = QrtrPublish(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
                      SDM_COMP_SERVICE_INSTANCE);
   if (err < 0) {
     DLOGE("failed to publish rmtfs service %d", err);
@@ -83,6 +99,7 @@ int SDMCompService::Init() {
   } else {
     DLOGW("Unable to load = %s, error = %s", EXTN_LIB_NAME, extension_lib_.Error());
   }
+  init_done_ = true;
 
   return 0;
 cleanup:
@@ -108,15 +125,15 @@ int SDMCompService::Deinit() {
     demura_hfc_buf_fd_ = -1;
   }
   if (qrtr_fd_ > 0) {
-    qrtr_bye(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
+    QrtrBye(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
              SDM_COMP_SERVICE_INSTANCE);
-    qrtr_close(qrtr_fd_);
+    QrtrClose(qrtr_fd_);
   }
   return 0;
 }
 
 void SDMCompService::SendResponse(const Response &rsp) {
-  int ret = qrtr_sendto(qrtr_fd_, qrtr_node_, qrtr_port_, &rsp, sizeof(rsp));
+  int ret = QrtrSendTo(qrtr_fd_, qrtr_node_, qrtr_port_, &rsp, sizeof(rsp));
   if (ret < 0) {
     DLOGE("Failed to send response for command %d ret %d", rsp.id, ret);
   }
@@ -186,9 +203,9 @@ int SDMCompService::QRTREventHandler(SDMCompService *sdm_comp_service) {
   struct qrtr_packet qrtr_pkt = {};
   socklen_t soc_len;
   char buf[4096] = {};
-
-  while(1) {
-    int ret = qrtr_poll(sdm_comp_service->qrtr_fd_, -1);
+  DLOGI("Start listening to client request");
+  while(sdm_comp_service->init_done_) {
+    int ret = sdm_comp_service->QrtrPoll(sdm_comp_service->qrtr_fd_, -1);
     if (ret < 0) {
       continue;
     }
@@ -206,7 +223,7 @@ int SDMCompService::QRTREventHandler(SDMCompService *sdm_comp_service) {
     {
       std::lock_guard<std::mutex> lock(sdm_comp_service->qrtr_lock_);
 
-      ret = qrtr_decode(&qrtr_pkt, buf, ret, &soc_qrtr);
+      ret = sdm_comp_service->QrtrDecode(&qrtr_pkt, buf, ret, &soc_qrtr);
       if (ret < 0) {
         DLOGE("failed to decode incoming message");
         continue;

@@ -61,10 +61,19 @@ class SDMCompService    {
   void ImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt);
   void SendResponse(const Response &rsp);
 
+  int (*QrtrOpen)(int rport);
+  void (*QrtrClose)(int sock);
+  int (*QrtrSendTo)(int sock, uint32_t node, uint32_t port, const void *data, unsigned int sz);
+  int (*QrtrPublish)(int sock, uint32_t service, uint16_t version, uint16_t instance);
+  int (*QrtrBye)(int sock, uint32_t service, uint16_t version, uint16_t instance);
+  int (*QrtrPoll)(int sock, unsigned int ms);
+  int (*QrtrDecode)(struct qrtr_packet *dest, void *buf, size_t len,
+                    const struct sockaddr_qrtr *sq);
   std::mutex qrtr_lock_;
   int qrtr_fd_ = -1;
   int qrtr_port_ = -1;
   int qrtr_node_ = -1;
+  DynLib qrtr_lib_;
 
   SDMCompInterface *sdm_comp_intf_ = NULL;
   MemBuf *mem_buf_ = nullptr;
@@ -74,6 +83,7 @@ class SDMCompService    {
   CreateSDMCompExtnIntf create_sdm_comp_extn_intf_ = nullptr;
   DestroySDMCompExtnIntf destroy_sdm_comp_extn_intf_ = nullptr;
   SDMCompServiceExtnIntf *sdm_comp_service_extn_intf_ = nullptr;
+  bool init_done_ = false;
 };
 
 }  // namespace sdm
