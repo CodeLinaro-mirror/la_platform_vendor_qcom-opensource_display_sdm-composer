@@ -28,6 +28,8 @@
 #include <core/core_interface.h>
 #include <errno.h>
 
+#include <mutex>
+
 #include "sdm_comp_buffer_sync_handler.h"
 #include "sdm_comp_buffer_allocator.h"
 #include "sdm_comp_interface.h"
@@ -35,6 +37,9 @@
 #include "sdm_comp_service.h"
 
 namespace sdm {
+
+using std::recursive_mutex;
+using std::lock_guard;
 
 class SDMCompImpl : public SDMCompInterface {
  public:
@@ -57,6 +62,7 @@ class SDMCompImpl : public SDMCompInterface {
   SDMCompBufferAllocator buffer_allocator_;
   SDMCompBufferSyncHandler buffer_sync_handler_;
   SDMCompService *sdm_comp_service_ = nullptr;
+  recursive_mutex recursive_mutex_;
 };
 
 }  // namespace sdm
