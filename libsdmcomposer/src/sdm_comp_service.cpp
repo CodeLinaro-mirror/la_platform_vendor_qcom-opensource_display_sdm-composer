@@ -111,7 +111,9 @@ cleanup:
 int SDMCompService::Deinit() {
   std::lock_guard<std::mutex> lock(qrtr_lock_);
 
-  destroy_sdm_comp_extn_intf_(sdm_comp_service_extn_intf_);
+  if (destroy_sdm_comp_extn_intf_) {
+    destroy_sdm_comp_extn_intf_(sdm_comp_service_extn_intf_);
+  }
 
   if (mem_buf_) {
     MemBuf::PutInstance();
@@ -193,7 +195,9 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
       ImportDemuraBuffers(qrtr_pkt);
       break;
     default:
-      sdm_comp_service_extn_intf_->CommandHandler(qrtr_pkt);
+      if (sdm_comp_service_extn_intf_) {
+        sdm_comp_service_extn_intf_->CommandHandler(qrtr_pkt);
+      }
       break;
   }
 }
