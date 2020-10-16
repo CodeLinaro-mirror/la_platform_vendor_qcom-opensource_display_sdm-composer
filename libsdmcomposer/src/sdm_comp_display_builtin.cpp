@@ -329,7 +329,17 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
 }
 
 DisplayError SDMCompDisplayBuiltIn::HandleEvent(DisplayEvent event) {
-  DLOGI_IF(kTagDisplay, "Received display event %d", event);
+  DLOGI("Received display event %d", event);
+  switch (event) {
+    case kDisplayPowerResetEvent:
+    case kPanelDeadEvent:
+      if (callback_) {
+        callback_->OnError();
+      }
+      break;
+    default:
+      break;
+  }
   return kErrorNone;
 }
 
