@@ -58,9 +58,11 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   int Deinit();
   int GetDisplayAttributes(SDMCompDisplayAttributes *display_attributes);
   int ShowBuffer(BufferHandle *buf_handle, int32_t *out_release_fence);
-  DisplayError SetColorModeWithRenderIntent(struct ColorMode mode);
-  DisplayError GetColorModes(uint32_t *out_num_modes,
-                        struct ColorMode *out_modes);
+  int SetColorModeWithRenderIntent(struct ColorMode mode);
+  int GetColorModes(uint32_t *out_num_modes, struct ColorMode *out_modes);
+  SDMCompDisplayType GetDisplayType() { return display_type_; }
+  int SetPanelBrightness(float brightness_level);
+  void SetMinPanelBrightness(float min_brightness) { min_panel_brightness_ = min_brightness; }
 
  private:
   void CreateLayerStack();
@@ -68,8 +70,8 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   int PrepareLayerStack(BufferHandle *buf_handle);
 
   void PopulateColorModes();
-  DisplayError GetStcColorModeFromMap(const ColorMode &mode, snapdragoncolor::ColorMode *out_mode);
-  DisplayError ApplyCurrentColorModeWithRenderIntent();
+  int GetStcColorModeFromMap(const ColorMode &mode, snapdragoncolor::ColorMode *out_mode);
+  int ApplyCurrentColorModeWithRenderIntent();
 
   CoreInterface *core_intf_ = NULL;
   DisplayInterface *display_intf_ = NULL;
@@ -86,7 +88,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   typedef std::map<RenderIntent, snapdragoncolor::ColorMode> RenderIntentMap;
   typedef std::map<GammaTransfer, RenderIntentMap> TransferMap;
   std::map<ColorPrimaries, TransferMap> color_mode_map_ = {};
-
+  float min_panel_brightness_ = 0.0f;
 };
 
 }  // namespace sdm

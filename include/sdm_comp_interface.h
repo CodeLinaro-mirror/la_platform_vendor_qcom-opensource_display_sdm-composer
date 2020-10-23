@@ -240,6 +240,27 @@ class SDMCompInterface {
   virtual int GetColorModes(Handle disp_hnd, uint32_t *out_num_modes,
                             struct ColorMode *out_modes) = 0;
 
+  /*! @brief Method to set panel brightness
+
+    @detail This api enables client to set the panel brightness of a given display, If the set
+            brightness level is below the minimum panel brightness values set by the API
+            SetMinPanelBrightness(), then it ignores the request.
+
+    @param[in] disp_hnd - pointer to display handle which was created during CreateDisplay()
+    @param[in] brightness_level - brightness_level of the panel
+
+    @return Returns 0 on sucess otherwise errno
+  */
+  virtual int SetPanelBrightness(Handle disp_hnd, float brightness_level) = 0;
+
+  /*! @brief Method to set minimum panel brightness level
+
+    @param[in] disp_hnd - pointer to display handle which was created during CreateDisplay()
+    @param[in] min_brightness_level - min_brightness_level of the panel
+
+    @return Returns 0 on sucess otherwise errno
+  */
+ virtual int SetMinPanelBrightness(Handle disp_hnd, float min_brightness_level) = 0;
 
  protected:
   virtual ~SDMCompInterface() { }

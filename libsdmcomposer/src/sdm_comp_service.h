@@ -45,13 +45,14 @@ using std::mutex;
 
 namespace sdm {
 
-class SDMCompService    {
+class SDMCompService {
  public:
   explicit SDMCompService(SDMCompInterface *sdm_comp_intf) : sdm_comp_intf_(sdm_comp_intf) { }
-
   int Init();
   int Deinit();
   int GetImportedDemuraBuffers(int *cfg_buf_fd, int *hfc_buf_fd);
+  int OnDisplayCreate(Handle display_hnd, SDMCompDisplayType disp_type);
+  int OnDisplayDestroy(SDMCompDisplayType disp_type);
   static int QRTREventHandler(SDMCompService *sdm_comp_service);
 
   ~SDMCompService() { }
@@ -59,7 +60,9 @@ class SDMCompService    {
  private:
   void CommandHandler(const struct qrtr_packet &qrtr_pkt);
   void ImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt);
-  void SendResponse(const Response &rsp);
+  void SendResponse(int node, int port, const Response &rsp);
+  void HandleSetBacklight(const struct qrtr_packet &qrtr_pkt);
+  SDMCompDisplayType GetSDMCompDisplayType(DisplayType disp_type);
 
   int (*QrtrOpen)(int rport);
   void (*QrtrClose)(int sock);
@@ -71,8 +74,6 @@ class SDMCompService    {
                     const struct sockaddr_qrtr *sq);
   std::mutex qrtr_lock_;
   int qrtr_fd_ = -1;
-  int qrtr_port_ = -1;
-  int qrtr_node_ = -1;
   DynLib qrtr_lib_;
 
   SDMCompInterface *sdm_comp_intf_ = NULL;
@@ -84,6 +85,11 @@ class SDMCompService    {
   DestroySDMCompExtnIntf destroy_sdm_comp_extn_intf_ = nullptr;
   SDMCompServiceExtnIntf *sdm_comp_service_extn_intf_ = nullptr;
   bool init_done_ = false;
+
+  std::mutex disp_lock_;
+  Handle display_hnd_[kSDMCompDisplayTypeMax];
+  float panel_brightness_[kSDMCompDisplayTypeMax] = {0.0f};
+  bool cache_panel_brightness_[kSDMCompDisplayTypeMax] = {false};
 };
 
 }  // namespace sdm

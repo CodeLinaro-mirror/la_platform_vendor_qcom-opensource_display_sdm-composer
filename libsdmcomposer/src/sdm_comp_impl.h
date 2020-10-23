@@ -35,6 +35,7 @@
 #include "sdm_comp_interface.h"
 #include "core/display_interface.h"
 #include "sdm_comp_service.h"
+#include "sdm_comp_display_builtin.h"
 
 namespace sdm {
 
@@ -43,12 +44,13 @@ using std::lock_guard;
 
 class SDMCompImpl : public SDMCompInterface {
  public:
-  virtual ~SDMCompImpl() { }
+  static SDMCompImpl *GetInstance();
 
   int Init();
   int Deinit();
 
  protected:
+  virtual ~SDMCompImpl() { }
   virtual int CreateDisplay(SDMCompDisplayType display_type, CallbackInterface *callback,
                             Handle *disp_hnd);
   virtual int DestroyDisplay(Handle disp_hnd);
@@ -57,6 +59,13 @@ class SDMCompImpl : public SDMCompInterface {
   virtual int SetColorModeWithRenderIntent(Handle disp_hnd, struct ColorMode mode);
   virtual int GetColorModes(Handle disp_hnd, uint32_t *out_num_modes,
                             struct ColorMode *out_modes);
+  virtual int SetPanelBrightness(Handle disp_hnd, float brightness_level);
+  virtual int SetMinPanelBrightness(Handle disp_hnd, float min_brightness_level);
+
+  static SDMCompImpl *sdm_comp_impl_;
+  static SDMCompDisplayBuiltIn *display_builtin_[kSDMCompDisplayTypeMax];
+  static uint32_t ref_count_;
+  static uint32_t disp_ref_count_[kSDMCompDisplayTypeMax];
 
   CoreInterface *core_intf_ = nullptr;
   SDMCompBufferAllocator buffer_allocator_;

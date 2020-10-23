@@ -130,12 +130,12 @@ int SDMCompDisplayBuiltIn::ShowBuffer(BufferHandle *buf_handle, int32_t *retire_
     return status;
   }
 
-  DisplayError error = ApplyCurrentColorModeWithRenderIntent();
-  if (error != kErrorNone) {
-      DLOGW("Failed to ApplyCurrentColorModeWithRenderIntent. Error = %d", error);
+  status = ApplyCurrentColorModeWithRenderIntent();
+  if (status != 0) {
+      DLOGW("Failed to ApplyCurrentColorModeWithRenderIntent. Error = %d", status);
   }
 
-  error = display_intf_->Prepare(&layer_stack_);
+  DisplayError error = display_intf_->Prepare(&layer_stack_);
   if (error != kErrorNone) {
       DLOGW("Prepare failed. Error = %d", error);
       return -EINVAL;
@@ -163,25 +163,25 @@ void SDMCompDisplayBuiltIn::PopulateColorModes() {
   }
 }
 
-DisplayError SDMCompDisplayBuiltIn::SetColorModeWithRenderIntent(struct ColorMode mode) {
+int SDMCompDisplayBuiltIn::SetColorModeWithRenderIntent(struct ColorMode mode) {
   if (mode.gamut < ColorPrimaries_BT709_5 || mode.gamut >= ColorPrimaries_Max) {
     DLOGE("Invalid color primaries %d", mode.gamut);
-    return kErrorParameters;
+    return -EINVAL;
   }
 
   if (mode.gamma < Transfer_sRGB || mode.gamma >= Transfer_Max) {
     DLOGE("Invalid gamma transfer %d", mode.gamma);
-    return kErrorParameters;
+    return -EINVAL;
   }
 
   if (mode.intent >= kRenderIntentMaxRenderIntent ) {
     DLOGE("Invalid intent  %d", mode.intent);
-    return kErrorParameters;
+    return -EINVAL;
   }
 
   if (current_mode_.gamut == mode.gamut && current_mode_.gamma == mode.gamma &&
       current_mode_.intent == mode.intent) {
-    return kErrorNone;
+    return 0;
   }
 
   current_mode_ = mode;
@@ -189,79 +189,75 @@ DisplayError SDMCompDisplayBuiltIn::SetColorModeWithRenderIntent(struct ColorMod
 
   Refresh();
 
-  return kErrorNone;
+  return 0;
 }
 
-DisplayError SDMCompDisplayBuiltIn::GetStcColorModeFromMap(const ColorMode &mode,
-                        snapdragoncolor::ColorMode *out_mode) {
+int SDMCompDisplayBuiltIn::GetStcColorModeFromMap(const ColorMode &mode,
+                                                  snapdragoncolor::ColorMode *out_mode) {
   if (!out_mode) {
     DLOGE("Invalid parameter, out_mode is NULL");
-    return kErrorParameters;
+    return -EINVAL;
   }
 
   if (color_mode_map_.find(mode.gamut) == color_mode_map_.end()) {
     DLOGE("Color Primary %d is not supported", mode.gamut);
-    return kErrorNotSupported;
+    return -ENOTSUP;
   }
 
   if (color_mode_map_[mode.gamut].find(mode.gamma) == color_mode_map_[mode.gamut].end()) {
     DLOGE("Gamma Transfer %d is not supported", mode.gamma);
-    return kErrorNotSupported;
+    return -ENOTSUP;
   }
 
   auto iter = color_mode_map_[mode.gamut][mode.gamma].find(mode.intent);
   if (iter != color_mode_map_[mode.gamut][mode.gamma].end()) {
     // Found the mode
     *out_mode = iter->second;
-    return kErrorNone;
+    return 0;
   }
 
   DLOGW("Can't find color mode gamut %d gamma %d intent %d", mode.gamut, mode.gamma, mode.intent);
 
-  return kErrorNotSupported;
+  return -ENOTSUP;
 }
 
-DisplayError SDMCompDisplayBuiltIn::ApplyCurrentColorModeWithRenderIntent() {
-  DisplayError error = kErrorNone;
-
+int SDMCompDisplayBuiltIn::ApplyCurrentColorModeWithRenderIntent() {
   if (stc_mode_list_.list.size() < 1) {
-    return kErrorNone;
+    return 0;
   }
 
   if (!apply_mode_) {
-    return kErrorNone;
+    return 0;
   }
 
   snapdragoncolor::ColorMode mode;
-  error = GetStcColorModeFromMap(current_mode_, &mode);
-  if (error) {
+  int ret = GetStcColorModeFromMap(current_mode_, &mode);
+  if (ret) {
     DLOGW("Cannot find mode for current_color_mode_ gamut %d gamma %d intent %d ",
            current_mode_.gamut, current_mode_.gamma, current_mode_.intent);
-    return kErrorNone;
+    return 0;
   }
 
   DLOGI("Applying Stc mode (gamut %d gamma %d intent %d hw_assets.size %d)",
         mode.gamut, mode.gamma, mode.intent, mode.hw_assets.size());
-  error = display_intf_->SetStcColorMode(mode);
+  DisplayError error = display_intf_->SetStcColorMode(mode);
   if (error != kErrorNone) {
     DLOGE("Failed to apply Stc color mode: gamut %d gamma %d intent %d err %d",
         mode.gamut, mode.gamma, mode.intent, error);
-    return kErrorNone;
+    return 0;
   }
 
   apply_mode_ = false;
 
   DLOGV_IF(kTagQDCM, "Successfully applied mode gamut = %d, gamma = %d, intent = %d",
            current_mode_.gamut, current_mode_.gamma, current_mode_.intent);
-  return kErrorNone;
+  return 0;
 }
 
-DisplayError SDMCompDisplayBuiltIn::GetColorModes(uint32_t *out_num_modes,
-                                                  struct ColorMode *out_modes)
-{
+int SDMCompDisplayBuiltIn::GetColorModes(uint32_t *out_num_modes, struct ColorMode *out_modes) {
   if (!out_num_modes || !out_modes) {
     DLOGE("Invalid parameters");
-    return kErrorParameters;
+    return -EINVAL;
   }
 
   auto it = stc_mode_list_.list.begin();
@@ -273,7 +269,7 @@ DisplayError SDMCompDisplayBuiltIn::GetColorModes(uint32_t *out_num_modes,
     mode.intent = static_cast<RenderIntent>(it->intent);
     out_modes[i] = mode;
   }
-  return kErrorNone;
+  return 0;
 }
 
 void SDMCompDisplayBuiltIn::CreateLayerStack() {
@@ -335,6 +331,24 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
 DisplayError SDMCompDisplayBuiltIn::HandleEvent(DisplayEvent event) {
   DLOGI_IF(kTagDisplay, "Received display event %d", event);
   return kErrorNone;
+}
+
+int SDMCompDisplayBuiltIn::SetPanelBrightness(float brightness_level) {
+  if (brightness_level < min_panel_brightness_) {
+    DLOGE("brightness level is invalid!! brightness_level %f, min_panel_brightness %f",
+          brightness_level, min_panel_brightness_);
+    return -EINVAL;
+  }
+  // if min_panel_brightness is not set, then set panel_brightness value as min_panel_brightness
+  if (min_panel_brightness_ == 0.0f) {
+    min_panel_brightness_ = brightness_level;
+  }
+
+  DisplayError err = display_intf_->SetPanelBrightness(brightness_level);
+  if (err != kErrorNone) {
+    return -EINVAL;
+  }
+  return 0;
 }
 
 }  // namespace sdm

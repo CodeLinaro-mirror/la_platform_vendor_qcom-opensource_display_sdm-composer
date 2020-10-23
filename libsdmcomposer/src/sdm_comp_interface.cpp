@@ -42,11 +42,13 @@ int SDMCompInterface::Create(SDMCompInterface **intf) {
     DLOGE("intf pointer is NULL");
     return -EINVAL;
   }
-  SDMCompImpl *sdm_comp_impl = new SDMCompImpl();
+  SDMCompImpl *sdm_comp_impl = SDMCompImpl::GetInstance();
+  if (!sdm_comp_impl) {
+    return -EINVAL;
+  }
   int error = sdm_comp_impl->Init();
   if (error != 0) {
     DLOGE("Init failed with %d", error);
-    delete sdm_comp_impl;
     return error;
   }
   *intf = sdm_comp_impl;
@@ -66,7 +68,6 @@ int SDMCompInterface::Destroy(SDMCompInterface *intf) {
     DLOGE("Deinit failed with %d", error);
     return error;
   }
-  delete intf;
 
   return 0;
 }

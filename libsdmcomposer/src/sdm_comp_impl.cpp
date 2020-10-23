@@ -24,7 +24,6 @@
 
 #include "sdm_comp_impl.h"
 #include "core/sdm_types.h"
-#include "sdm_comp_display_builtin.h"
 #include "debug_handler.h"
 #include "sdm_comp_service.h"
 
@@ -33,6 +32,19 @@
 #define __CLASS__ "SDMCompImpl"
 
 namespace sdm {
+
+SDMCompImpl *SDMCompImpl::sdm_comp_impl_ = nullptr;
+SDMCompDisplayBuiltIn *SDMCompImpl::display_builtin_[kSDMCompDisplayTypeMax] = { nullptr };
+uint32_t SDMCompImpl::ref_count_ = 0;
+uint32_t SDMCompImpl::disp_ref_count_[kSDMCompDisplayTypeMax] = { 0 };
+
+SDMCompImpl *SDMCompImpl::GetInstance() {
+  if (!sdm_comp_impl_) {
+    sdm_comp_impl_= new SDMCompImpl();
+  }
+
+  return sdm_comp_impl_;
+}
 
 int SDMCompImpl::Init() {
   lock_guard<recursive_mutex> obj(recursive_mutex_);
@@ -45,7 +57,7 @@ int SDMCompImpl::Init() {
   std::thread ([=] { SDMCompService::QRTREventHandler(sdm_comp_service_); }).detach();
 
   DisplayError error = CoreInterface::CreateCore(&buffer_allocator_, &buffer_sync_handler_,
-                                                 NULL, &core_intf_);
+                                                 NULL, NULL, &core_intf_);
   if (error != kErrorNone) {
     DLOGE("Failed to create CoreInterface");
     sdm_comp_service_->Deinit();
@@ -53,6 +65,7 @@ int SDMCompImpl::Init() {
     sdm_comp_service_ = nullptr;
     return -EINVAL;
   }
+  ref_count_++;
 
   return 0;
 }
@@ -70,6 +83,14 @@ int SDMCompImpl::Deinit() {
     DLOGE("Display core de-initialization failed. Error = %d", error);
     return -EINVAL;
   }
+
+  if (ref_count_) {
+    ref_count_--;
+    if (!ref_count_) {
+      delete sdm_comp_impl_;
+      sdm_comp_impl_ = nullptr;
+    }
+  }
   return 0;
 }
 
@@ -80,6 +101,11 @@ int SDMCompImpl::CreateDisplay(SDMCompDisplayType display_type, CallbackInterfac
     return -EINVAL;
   }
 
+  if (display_builtin_[display_type]) {
+    *disp_hnd = display_builtin_[display_type];
+    disp_ref_count_[display_type]++;
+    return 0;
+  }
   int status = 0;
 
   HWDisplaysInfo hw_displays_info = {};
@@ -115,6 +141,9 @@ int SDMCompImpl::CreateDisplay(SDMCompDisplayType display_type, CallbackInterfac
       return status;
     }
     *disp_hnd = display_builtin;
+    display_builtin_[display_type] = display_builtin;
+    disp_ref_count_[display_type]++;
+    status = sdm_comp_service_->OnDisplayCreate(display_builtin, display_type);
     break;
   }
 
@@ -127,14 +156,21 @@ int SDMCompImpl::DestroyDisplay(Handle disp_hnd) {
     DLOGE("Display handle is NULL");
     return -EINVAL;
   }
-
   SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
-  int status = sdm_comp_display->Deinit();
-  if (status != 0) {
-    return status;
+  SDMCompDisplayType disp_type = sdm_comp_display->GetDisplayType();
+  if (disp_ref_count_[disp_type]) {
+    disp_ref_count_[disp_type]--;
+    if (!disp_ref_count_[disp_type]) {
+      int status = sdm_comp_display->Deinit();
+      if (status != 0) {
+        return status;
+      }
+      DLOGI("Destroying builtin display %d", disp_type);
+      delete display_builtin_[disp_type];
+      display_builtin_[disp_type] = nullptr;
+      sdm_comp_service_->OnDisplayDestroy(disp_type);
+    }
   }
-  delete sdm_comp_display;
-
   return 0;
 }
 
@@ -186,5 +222,26 @@ int SDMCompImpl::GetColorModes(Handle disp_hnd, uint32_t *out_num_modes,
   SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
   return sdm_comp_display->GetColorModes(out_num_modes, out_modes);
 }
+
+int SDMCompImpl::SetPanelBrightness(Handle disp_hnd, float brightness_level) {
+  if (!disp_hnd) {
+    DLOGE("Invalid input param disp_hnd %d", disp_hnd);
+    return -EINVAL;
+  }
+
+  SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
+  return sdm_comp_display->SetPanelBrightness(brightness_level);
+}
+
+int SDMCompImpl::SetMinPanelBrightness(Handle disp_hnd, float min_brightness_level) {
+  if (!disp_hnd) {
+    DLOGE("Invalid input param disp_hnd %d", disp_hnd);
+    return -EINVAL;
+  }
+  SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
+  sdm_comp_display->SetMinPanelBrightness(min_brightness_level);
+  return 0;
+}
+
 
 }  // namespace sdm
