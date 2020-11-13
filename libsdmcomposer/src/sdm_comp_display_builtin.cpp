@@ -112,13 +112,43 @@ int SDMCompDisplayBuiltIn::Deinit() {
   return 0;
 }
 
+int SDMCompDisplayBuiltIn::GetDisplayAttributes(int config_idx,
+                                                SDMCompDisplayAttributes *display_attributes) {
+  if (!display_attributes) {
+    return -EINVAL;
+  }
+  DisplayConfigVariableInfo variable_info = {};
+
+  display_intf_->GetConfig(config_idx, &variable_info);
+  display_attributes->x_res = variable_info.x_pixels;
+  display_attributes->y_res = variable_info.y_pixels;
+  display_attributes->x_dpi = variable_info_.x_dpi;
+  display_attributes->y_dpi = variable_info_.y_dpi;
+  display_attributes->vsync_period = variable_info_.vsync_period_ns;
+  display_attributes->is_yuv = variable_info_.is_yuv;
+  display_attributes->fps = variable_info.fps;
+  display_attributes->smart_panel = variable_info.smart_panel;
+
+  return 0;
+}
+
+int SDMCompDisplayBuiltIn::SetDisplayConfig(int config_idx) {
+  return display_intf_->SetActiveConfig(config_idx);
+}
+
 int SDMCompDisplayBuiltIn::GetDisplayAttributes(SDMCompDisplayAttributes *display_attributes) {
+  if (!display_attributes) {
+    return -EINVAL;
+  }
+
   display_attributes->x_res = variable_info_.x_pixels;
   display_attributes->y_res = variable_info_.y_pixels;
   display_attributes->x_dpi = variable_info_.x_dpi;
   display_attributes->y_dpi = variable_info_.y_dpi;
   display_attributes->vsync_period = variable_info_.vsync_period_ns;
   display_attributes->is_yuv = variable_info_.is_yuv;
+  display_attributes->fps = variable_info_.fps;
+  display_attributes->smart_panel = variable_info_.smart_panel;
 
   return 0;
 }

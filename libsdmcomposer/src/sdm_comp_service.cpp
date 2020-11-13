@@ -32,6 +32,7 @@
 
 #include <mutex>
 #include <algorithm>
+#include <thread>
 
 #include "sdm_comp_service.h"
 #include "debug_handler.h"
@@ -91,7 +92,7 @@ int SDMCompService::Init() {
       goto cleanup;
     }
 
-    err = create_sdm_comp_extn_intf_(qrtr_fd_, sdm_comp_intf_, &sdm_comp_service_extn_intf_);
+    err = create_sdm_comp_extn_intf_(qrtr_fd_, &sdm_comp_service_extn_intf_);
     if (err != 0) {
       DLOGE("Unable to create sdm comp service extenstion interface");
       goto cleanup;
@@ -101,6 +102,8 @@ int SDMCompService::Init() {
   }
 
   init_done_ = true;
+
+  std::thread ([=] { SDMCompService::QRTREventHandler(this); }).detach();
 
   return 0;
 cleanup:
@@ -119,14 +122,7 @@ int SDMCompService::Deinit() {
   if (mem_buf_) {
     MemBuf::PutInstance();
   }
-  if (demura_cfg_buf_fd_ > 0) {
-    close(demura_cfg_buf_fd_);
-    demura_cfg_buf_fd_ = -1;
-  }
-  if (demura_hfc_buf_fd_ > 0) {
-    close(demura_hfc_buf_fd_);
-    demura_hfc_buf_fd_ = -1;
-  }
+
   if (qrtr_fd_ > 0) {
     QrtrBye(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
              SDM_COMP_SERVICE_INSTANCE);
@@ -143,22 +139,22 @@ void SDMCompService::SendResponse(int node, int port, const Response &rsp) {
   DLOGI("Sent response for the command id %d size %d", rsp.id, sizeof(rsp));
 }
 
-int SDMCompService::GetImportedDemuraBuffers(int *cfg_buf_fd, int *hfc_buf_fd) {
-  if (!cfg_buf_fd || !hfc_buf_fd) {
-    return -EINVAL;
-  }
-  *cfg_buf_fd = demura_cfg_buf_fd_;
-  *hfc_buf_fd = demura_hfc_buf_fd_;
-  return 0;
-}
-
-void SDMCompService::ImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt) {
+void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt) {
   Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
   Response rsp = {};
   rsp.id = cmd->id;
-  DemuraMemHandle *demura_mem_hdl = &cmd->cmd_export_demura_buf.demura_mem_handle;
+  DemuraMemInfo *demura_mem_info = &cmd->cmd_export_demura_buf.demura_mem_info;
+  SDMCompServiceDemuraBufInfo demura_buf_info = {};
+  SDMCompDisplayType sdm_comp_disp_type = GetSDMCompDisplayType(demura_mem_info->disp_type);
 
-  int error = mem_buf_->Import(demura_mem_hdl->cfg_mem_hdl, &demura_cfg_buf_fd_);
+  if (sdm_comp_disp_type == kSDMCompDisplayTypeMax) {
+    DLOGE("Invalid display_type %d", sdm_comp_disp_type);
+    rsp.status = -EINVAL;
+    SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+    return;
+  }
+
+  int error = mem_buf_->Import(demura_mem_info->calib_mem_hdl, &demura_buf_info.calib_buf_fd);
   if (error != 0) {
     DLOGW("Import failed with %d", error);
     rsp.status = error;
@@ -166,12 +162,22 @@ void SDMCompService::ImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt) {
     return;
   }
 
-  error = mem_buf_->Import(demura_mem_hdl->hfc_mem_hdl, &demura_hfc_buf_fd_);
+  error = mem_buf_->Import(demura_mem_info->hfc_mem_hdl, &demura_buf_info.hfc_buf_fd);
   if (error != 0) {
     DLOGW("Import failed with %d", error);
-    close(demura_cfg_buf_fd_);
-    demura_cfg_buf_fd_ = -1;
+    close(demura_buf_info.calib_buf_fd);
     rsp.status = error;
+  }
+
+  demura_buf_info.calib_buf_size = demura_mem_info->calib_mem_size;
+  demura_buf_info.hfc_buf_size = demura_mem_info->hfc_mem_size;
+  demura_buf_info.panel_id = demura_mem_info->panel_id;
+
+  if (callback_) {
+    int err = callback_->OnEvent(kEventImportDemuraBuffers, sdm_comp_disp_type, &demura_buf_info);
+    DLOGI("ImportDemuraBuffers on display type %d is %s", demura_mem_info->disp_type,
+          err ? "failed" : "successful");
+    rsp.status = err;
   }
 
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
@@ -190,21 +196,39 @@ void SDMCompService::HandleSetBacklight(const struct qrtr_packet &qrtr_pkt) {
     SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
     return;
   }
-  std::lock_guard<std::mutex> lock(disp_lock_);
 
-  if (display_hnd_[sdm_comp_disp_type]) {
-    int err = sdm_comp_intf_->SetPanelBrightness(display_hnd_[sdm_comp_disp_type],
-                                                 cmd_backlight->brightness);
-
-    DLOGI("SetPanelBrightness value %f on display type %d is %s", cmd_backlight->brightness,
-           cmd_backlight->disp_type, err ? "failed" : "successful");
+  if (callback_) {
+    int err = callback_->OnEvent(kEventSetPanelBrightness, sdm_comp_disp_type,
+                                 cmd_backlight->brightness);
     rsp.status = err;
-  } else {
-    cache_panel_brightness_[sdm_comp_disp_type] = true;
-    panel_brightness_[sdm_comp_disp_type] = cmd_backlight->brightness;
-    DLOGI("Caching panel brightness value %f for display type %d", cmd_backlight->brightness,
-           cmd_backlight->disp_type);
-    rsp.status = 0;
+  }
+  SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+}
+
+void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt) {
+  Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
+  Response rsp = {};
+  rsp.id = cmd->id;
+  CmdSetDisplayConfigs *cmd_disp_configs =
+    reinterpret_cast<CmdSetDisplayConfigs*>(&cmd->cmd_set_disp_configs);
+  SDMCompDisplayType sdm_comp_disp_type = GetSDMCompDisplayType(cmd_disp_configs->disp_type);
+
+  if (sdm_comp_disp_type == kSDMCompDisplayTypeMax) {
+    DLOGE("Invalid display_type %d", sdm_comp_disp_type);
+    rsp.status = -EINVAL;
+    SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+    return;
+  }
+
+  if (callback_) {
+    SDMCompServiceDispConfigs disp_configs = {};
+    disp_configs.x_res = cmd_disp_configs->x_pixels;
+    disp_configs.y_res = cmd_disp_configs->y_pixels;
+    disp_configs.fps = cmd_disp_configs->fps;
+    disp_configs.smart_panel = cmd_disp_configs->smart_panel;
+    disp_configs.config_idx = cmd_disp_configs->config_idx;
+    int err = callback_->OnEvent(kEventSetDisplayConfig, sdm_comp_disp_type, &disp_configs);
+    rsp.status = err;
   }
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
@@ -239,10 +263,13 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
 
   switch (cmd->id) {
     case kCmdExportDemuraBuffers:
-      ImportDemuraBuffers(qrtr_pkt);
+      HandleImportDemuraBuffers(qrtr_pkt);
       break;
     case kCmdSetBacklight: {
       HandleSetBacklight(qrtr_pkt);
+    } break;
+    case kCmdSetDisplayConfig: {
+      HandleSetDisplayConfigs(qrtr_pkt);
     } break;
     default:
       if (sdm_comp_service_extn_intf_) {
@@ -311,37 +338,6 @@ SDMCompDisplayType SDMCompService::GetSDMCompDisplayType(DisplayType disp_type) 
     default:
       return kSDMCompDisplayTypeMax;
   }
-}
-
-int SDMCompService::OnDisplayCreate(Handle display_hnd, SDMCompDisplayType disp_type) {
-  std::lock_guard<std::mutex> lock(disp_lock_);
-  if (disp_type < kSDMCompDisplayTypePrimary && disp_type >= kSDMCompDisplayTypeMax) {
-    DLOGE("Invalid display type %d", disp_type);
-    return -EINVAL;
-  }
-  if (!display_hnd) {
-    DLOGE("Invalid display handle %d", display_hnd);
-    return -EINVAL;
-  }
-  if (cache_panel_brightness_[disp_type]) {
-    int err = sdm_comp_intf_->SetPanelBrightness(display_hnd, panel_brightness_[disp_type]);
-    DLOGI("SetPanelBrightness value %f on display type %d is %s", panel_brightness_[disp_type],
-           disp_type, err ? "failed" : "successful");
-    cache_panel_brightness_[disp_type] = false;
-  }
-
-  display_hnd_[disp_type] = display_hnd;
-  return 0;
-}
-
-int SDMCompService::OnDisplayDestroy(SDMCompDisplayType disp_type) {
-  std::lock_guard<std::mutex> lock(disp_lock_);
-  if (disp_type < kSDMCompDisplayTypePrimary && disp_type >= kSDMCompDisplayTypeMax) {
-    DLOGE("Invalid display type %d", disp_type);
-    return -EINVAL;
-  }
-  display_hnd_[disp_type] = nullptr;
-  return 0;
 }
 
 }

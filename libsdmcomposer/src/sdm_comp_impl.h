@@ -34,7 +34,7 @@
 #include "sdm_comp_buffer_allocator.h"
 #include "sdm_comp_interface.h"
 #include "core/display_interface.h"
-#include "sdm_comp_service.h"
+#include "sdm_comp_service_intf.h"
 #include "sdm_comp_display_builtin.h"
 
 namespace sdm {
@@ -42,7 +42,7 @@ namespace sdm {
 using std::recursive_mutex;
 using std::lock_guard;
 
-class SDMCompImpl : public SDMCompInterface {
+class SDMCompImpl : public SDMCompInterface, SDMCompServiceCbIntf {
  public:
   static SDMCompImpl *GetInstance();
 
@@ -61,6 +61,9 @@ class SDMCompImpl : public SDMCompInterface {
                             struct ColorMode *out_modes);
   virtual int SetPanelBrightness(Handle disp_hnd, float brightness_level);
   virtual int SetMinPanelBrightness(Handle disp_hnd, float min_brightness_level);
+  virtual int OnEvent(SDMCompServiceEvents event, ...);
+
+  void HandlePendingEvents();
 
   static SDMCompImpl *sdm_comp_impl_;
   static SDMCompDisplayBuiltIn *display_builtin_[kSDMCompDisplayTypeMax];
@@ -70,8 +73,12 @@ class SDMCompImpl : public SDMCompInterface {
   CoreInterface *core_intf_ = nullptr;
   SDMCompBufferAllocator buffer_allocator_;
   SDMCompBufferSyncHandler buffer_sync_handler_;
-  SDMCompService *sdm_comp_service_ = nullptr;
+  SDMCompServiceIntf *sdm_comp_service_intf_ = nullptr;
   recursive_mutex recursive_mutex_;
+  float panel_brightness_[kSDMCompDisplayTypeMax] = {0.0f};
+  SDMCompServiceDispConfigs disp_configs_[kSDMCompDisplayTypeMax] = {};
+  SDMCompServiceDemuraBufInfo demura_buf_info_[kSDMCompDisplayTypeMax] = {};
+  std::map<SDMCompServiceEvents, SDMCompDisplayType> pending_events_ = {};
 };
 
 }  // namespace sdm

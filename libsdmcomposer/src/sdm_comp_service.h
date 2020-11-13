@@ -35,9 +35,10 @@
 #include "vm_interface.h"
 #include "libqrtr.h"
 #include "membuf_wrapper.h"
-#include "sdm_comp_interface.h"
+#include "sdm_comp_service_intf.h"
 #include "utils/sys.h"
 #include "sdm_comp_service_extn_intf.h"
+#include "sdm_comp_interface.h"
 
 #include <mutex>
 
@@ -45,23 +46,20 @@ using std::mutex;
 
 namespace sdm {
 
-class SDMCompService {
+class SDMCompService : public SDMCompServiceIntf {
  public:
-  explicit SDMCompService(SDMCompInterface *sdm_comp_intf) : sdm_comp_intf_(sdm_comp_intf) { }
+  explicit SDMCompService(SDMCompServiceCbIntf *callback) : callback_(callback) { }
   int Init();
   int Deinit();
-  int GetImportedDemuraBuffers(int *cfg_buf_fd, int *hfc_buf_fd);
-  int OnDisplayCreate(Handle display_hnd, SDMCompDisplayType disp_type);
-  int OnDisplayDestroy(SDMCompDisplayType disp_type);
   static int QRTREventHandler(SDMCompService *sdm_comp_service);
-
   ~SDMCompService() { }
 
  private:
   void CommandHandler(const struct qrtr_packet &qrtr_pkt);
-  void ImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt);
   void SendResponse(int node, int port, const Response &rsp);
+  void HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt);
   void HandleSetBacklight(const struct qrtr_packet &qrtr_pkt);
+  void HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt);
   SDMCompDisplayType GetSDMCompDisplayType(DisplayType disp_type);
 
   int (*QrtrOpen)(int rport);
@@ -76,20 +74,13 @@ class SDMCompService {
   int qrtr_fd_ = -1;
   DynLib qrtr_lib_;
 
-  SDMCompInterface *sdm_comp_intf_ = NULL;
+  SDMCompServiceCbIntf *callback_ = NULL;
   MemBuf *mem_buf_ = nullptr;
-  int demura_cfg_buf_fd_ = -1;
-  int demura_hfc_buf_fd_ = -1;
   DynLib extension_lib_;
   CreateSDMCompExtnIntf create_sdm_comp_extn_intf_ = nullptr;
   DestroySDMCompExtnIntf destroy_sdm_comp_extn_intf_ = nullptr;
   SDMCompServiceExtnIntf *sdm_comp_service_extn_intf_ = nullptr;
   bool init_done_ = false;
-
-  std::mutex disp_lock_;
-  Handle display_hnd_[kSDMCompDisplayTypeMax];
-  float panel_brightness_[kSDMCompDisplayTypeMax] = {0.0f};
-  bool cache_panel_brightness_[kSDMCompDisplayTypeMax] = {false};
 };
 
 }  // namespace sdm

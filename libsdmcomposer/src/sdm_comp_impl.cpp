@@ -25,9 +25,6 @@
 #include "sdm_comp_impl.h"
 #include "core/sdm_types.h"
 #include "debug_handler.h"
-#include "sdm_comp_service.h"
-
-#include <thread>
 
 #define __CLASS__ "SDMCompImpl"
 
@@ -48,21 +45,21 @@ SDMCompImpl *SDMCompImpl::GetInstance() {
 
 int SDMCompImpl::Init() {
   lock_guard<recursive_mutex> obj(recursive_mutex_);
-  sdm_comp_service_ = new SDMCompService(this);
-  int ret = sdm_comp_service_->Init();
+  if (ref_count_) {
+    ref_count_++;
+    return 0;
+  }
+  int ret = SDMCompServiceIntf::Create(this, &sdm_comp_service_intf_);
   if (ret != 0) {
-    DLOGE("SDMCompService Init failed!! %d\n", ret);
+    DLOGW("SDMCompServiceIntf create failed!! %d\n", ret);
     return ret;
   }
-  std::thread ([=] { SDMCompService::QRTREventHandler(sdm_comp_service_); }).detach();
 
   DisplayError error = CoreInterface::CreateCore(&buffer_allocator_, &buffer_sync_handler_,
                                                  NULL, NULL, &core_intf_);
   if (error != kErrorNone) {
     DLOGE("Failed to create CoreInterface");
-    sdm_comp_service_->Deinit();
-    delete sdm_comp_service_;
-    sdm_comp_service_ = nullptr;
+    SDMCompServiceIntf::Destroy(sdm_comp_service_intf_);
     return -EINVAL;
   }
   ref_count_++;
@@ -72,21 +69,18 @@ int SDMCompImpl::Init() {
 
 int SDMCompImpl::Deinit() {
   lock_guard<recursive_mutex> obj(recursive_mutex_);
-  if (sdm_comp_service_) {
-    sdm_comp_service_->Deinit();
-    delete sdm_comp_service_;
-    sdm_comp_service_ = nullptr;
-  }
-
-  DisplayError error = CoreInterface::DestroyCore();
-  if (error != kErrorNone) {
-    DLOGE("Display core de-initialization failed. Error = %d", error);
-    return -EINVAL;
-  }
-
   if (ref_count_) {
     ref_count_--;
     if (!ref_count_) {
+      if (sdm_comp_service_intf_) {
+        SDMCompServiceIntf::Destroy(sdm_comp_service_intf_);
+      }
+
+      DisplayError error = CoreInterface::DestroyCore();
+      if (error != kErrorNone) {
+        DLOGE("Display core de-initialization failed. Error = %d", error);
+        return -EINVAL;
+      }
       delete sdm_comp_impl_;
       sdm_comp_impl_ = nullptr;
     }
@@ -143,7 +137,7 @@ int SDMCompImpl::CreateDisplay(SDMCompDisplayType display_type, CallbackInterfac
     *disp_hnd = display_builtin;
     display_builtin_[display_type] = display_builtin;
     disp_ref_count_[display_type]++;
-    status = sdm_comp_service_->OnDisplayCreate(display_builtin, display_type);
+    HandlePendingEvents();
     break;
   }
 
@@ -168,7 +162,6 @@ int SDMCompImpl::DestroyDisplay(Handle disp_hnd) {
       DLOGI("Destroying builtin display %d", disp_type);
       delete display_builtin_[disp_type];
       display_builtin_[disp_type] = nullptr;
-      sdm_comp_service_->OnDisplayDestroy(disp_type);
     }
   }
   return 0;
@@ -177,7 +170,7 @@ int SDMCompImpl::DestroyDisplay(Handle disp_hnd) {
 int SDMCompImpl::GetDisplayAttributes(Handle disp_hnd,
                                           SDMCompDisplayAttributes *display_attributes) {
   lock_guard<recursive_mutex> obj(recursive_mutex_);
-  if (!disp_hnd) {
+  if (!disp_hnd || !display_attributes) {
     DLOGE("Invalid input param disp_hnd %d, display_attributes %d", disp_hnd, display_attributes);
     return -EINVAL;
   }
@@ -185,7 +178,6 @@ int SDMCompImpl::GetDisplayAttributes(Handle disp_hnd,
   SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
   return sdm_comp_display->GetDisplayAttributes(display_attributes);
 }
-
 
 int SDMCompImpl::ShowBuffer(Handle disp_hnd, BufferHandle *buf_handle, int32_t *retire_fence) {
   lock_guard<recursive_mutex> obj(recursive_mutex_);
@@ -243,5 +235,100 @@ int SDMCompImpl::SetMinPanelBrightness(Handle disp_hnd, float min_brightness_lev
   return 0;
 }
 
+int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
+  int err = 0;
+  va_list arguments;
+  va_start(arguments, event);
+  switch (event) {
+  case kEventSetPanelBrightness: {
+    SDMCompDisplayType disp_type = (SDMCompDisplayType)(va_arg(arguments, int));
+    float panel_brightness = FLOAT(va_arg(arguments, double));
+    if (display_builtin_[disp_type]) {
+      int err = display_builtin_[disp_type]->SetPanelBrightness(panel_brightness);
+      DLOGI("Setting panel brightness value %f on display type %d is %s", panel_brightness,
+            disp_type, err ? "failed" : "successful");
+    } else {
+      pending_events_.emplace(std::make_pair(kEventSetPanelBrightness, disp_type));
+      panel_brightness_[disp_type] = panel_brightness;
+      DLOGI("Cache panel brightness value %f on display type %d", panel_brightness, disp_type);
+    }
+  } break;
+
+  case kEventSetDisplayConfig: {
+    SDMCompDisplayType disp_type = (SDMCompDisplayType)(va_arg(arguments, int));
+    SDMCompServiceDispConfigs *disp_configs =
+        reinterpret_cast<SDMCompServiceDispConfigs*>(va_arg(arguments, Handle));
+    if (display_builtin_[disp_type]) {
+      DLOGW("Setting display config is not supported in the middle of TUI session");
+      err = -ENOTSUP;
+    } else {
+      pending_events_.emplace(std::make_pair(kEventSetDisplayConfig, disp_type));
+      disp_configs_[disp_type] = *disp_configs;
+      DLOGI("Cache display config idx %d, WxH %dx%d, fps %d, %s panel for display type %d",
+            disp_configs->config_idx, disp_configs->x_res, disp_configs->y_res, disp_configs->fps,
+            disp_configs->smart_panel ? "cmdmode" : "videomode", disp_type);
+    }
+  } break;
+
+  case kEventImportDemuraBuffers: {
+    SDMCompDisplayType disp_type = (SDMCompDisplayType)(va_arg(arguments, int));
+    SDMCompServiceDemuraBufInfo *demura_buf_info =
+        reinterpret_cast<SDMCompServiceDemuraBufInfo*>(va_arg(arguments, Handle));
+    if (display_builtin_[disp_type]) {
+      DLOGW("Import demura buffers is not supported in the middle of TUI session");
+      err = -ENOTSUP;
+    } else {
+      demura_buf_info_[disp_type] = *demura_buf_info;
+    }
+  } break;
+
+  default:
+    err = -EINVAL;
+    break;
+  }
+  va_end(arguments);
+  return err;
+}
+
+void SDMCompImpl::HandlePendingEvents() {
+  for (auto pending_event : pending_events_) {
+    SDMCompDisplayType display_type = pending_event.second;
+    switch (pending_event.first) {
+    case kEventSetDisplayConfig: {
+      SDMCompDisplayAttributes disp_attributes = {};
+      int config_idx = disp_configs_[display_type].config_idx;
+      int err = display_builtin_[display_type]->GetDisplayAttributes(config_idx, &disp_attributes);
+      if (err == 0) {
+        if (disp_attributes.x_res != disp_configs_[display_type].x_res ||
+            disp_attributes.y_res != disp_configs_[display_type].y_res ||
+            disp_attributes.fps != disp_configs_[display_type].fps ||
+            disp_attributes.smart_panel != disp_configs_[display_type].smart_panel) {
+          DLOGW("Invalid display attributes for the given mode");
+          continue;
+        }
+        err = display_builtin_[display_type]->SetDisplayConfig(config_idx);
+        if (err != 0) {
+          continue;
+        }
+        DLOGI("Setting display config idx %d, WxH %dx%d, fps %d, %s panel for display type %d",
+              disp_configs_[display_type].config_idx, disp_configs_[display_type].x_res,
+              disp_configs_[display_type].y_res, disp_configs_[display_type].fps,
+              disp_configs_[display_type].smart_panel ? "cmdmode" : "videomode", display_type);
+      }
+    } break;
+
+    case kEventSetPanelBrightness: {
+      int err = display_builtin_[display_type]->SetPanelBrightness(panel_brightness_[display_type]);
+      DLOGI("SetPanelBrightness value %f on display type %d is %s", panel_brightness_[display_type],
+             display_type, err ? "failed" : "successful");
+    } break;
+
+    default:
+      break;
+    }
+  }
+  pending_events_.clear();
+}
 
 }  // namespace sdm

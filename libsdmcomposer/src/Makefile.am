@@ -16,7 +16,8 @@ c_sources = sdm_comp_buffer_allocator.cpp \
             sdm_comp_display_builtin.cpp \
             sdm_comp_impl.cpp \
             sdm_comp_interface.cpp \
-            sdm_comp_service.cpp
+            sdm_comp_service.cpp \
+            sdm_comp_service_intf.cpp
 
 lib_LTLIBRARIES = libsdmcomposer.la
 libsdmcomposer_la_CC = @CC@
