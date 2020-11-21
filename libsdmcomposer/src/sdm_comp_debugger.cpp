@@ -193,7 +193,7 @@ void SDMCompDebugHandler::Error(const char *format, ...) {
   char buffer[1024];
   vsnprintf (buffer, 1024, format, list);
   // TODO(user): print timestamp, process id and thread id
-  printf("%s E %s \n", LOG_TAG, buffer);
+  printf("E %s %s \n", LOG_TAG, buffer);
 #endif
   va_end(list);
 }
@@ -206,7 +206,7 @@ void SDMCompDebugHandler::Warning(const char *format, ...) {
 #else
   char buffer[1024];
   vsnprintf (buffer, 1024, format, list);
-  printf("%s W %s \n", LOG_TAG, buffer);
+  printf("W %s %s \n", LOG_TAG, buffer);
 #endif
   va_end(list);
 }
@@ -219,7 +219,7 @@ void SDMCompDebugHandler::Info(const char *format, ...) {
 #else
   char buffer[1024];
   vsnprintf (buffer, 1024, format, list);
-  printf("%s I %s \n", LOG_TAG, buffer);
+  printf("I %s %s \n", LOG_TAG, buffer);
 #endif
   va_end(list);
 }
@@ -232,7 +232,7 @@ void SDMCompDebugHandler::Debug(const char *format, ...) {
 #else
   char buffer[1024];
   vsnprintf (buffer, 1024, format, list);
-  printf("%s D %s \n", LOG_TAG, buffer);
+  printf("D %s %s \n", LOG_TAG, buffer);
 #endif
   va_end(list);
 }
@@ -246,7 +246,7 @@ void SDMCompDebugHandler::Verbose(const char *format, ...) {
 #else
     char buffer[1024];
     vsnprintf (buffer, 1024, format, list);
-    printf("%s V %s \n", LOG_TAG, buffer);
+    printf("V %s %s \n", LOG_TAG, buffer);
 #endif
     va_end(list);
   }
