@@ -91,6 +91,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   typedef std::map<GammaTransfer, RenderIntentMap> TransferMap;
   std::map<ColorPrimaries, TransferMap> color_mode_map_ = {};
   float min_panel_brightness_ = 0.0f;
+  bool validated_ = false;
 };
 
 }  // namespace sdm

@@ -165,16 +165,19 @@ int SDMCompDisplayBuiltIn::ShowBuffer(BufferHandle *buf_handle, int32_t *retire_
       DLOGW("Failed to ApplyCurrentColorModeWithRenderIntent. Error = %d", status);
   }
 
-  DisplayError error = display_intf_->Prepare(&layer_stack_);
-  if (error != kErrorNone) {
+  if (!validated_) {
+    DisplayError error = display_intf_->Prepare(&layer_stack_);
+    if (error != kErrorNone) {
       DLOGW("Prepare failed. Error = %d", error);
       return -EINVAL;
+    }
+    validated_ = true;
   }
 
-  error = display_intf_->Commit(&layer_stack_);
+  DisplayError error = display_intf_->Commit(&layer_stack_);
   if (error != kErrorNone) {
-      DLOGW("Commit failed. Error = %d", error);
-      return -EINVAL;
+    DLOGW("Commit failed. Error = %d", error);
+    return -EINVAL;
   }
   Layer *layer = layer_stack_.layers.at(0);
   *retire_fence = Fence::Dup(layer_stack_.retire_fence);
