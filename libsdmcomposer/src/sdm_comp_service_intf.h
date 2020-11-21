@@ -27,26 +27,54 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __SDMCOMP_SERVICE_EXTN_INTF_H__
-#define __SDMCOMP_SERVICE_EXTN_INTF_H__
+#ifndef __SDMCOMP_SERVICE_INTF_H__
+#define __SDMCOMP_SERVICE_INTF_H__
 
+#include <stdarg.h>
 #include "libqrtr.h"
 
-#define EXTN_LIB_NAME "libsdmcompserviceextn.so"
-#define CREATE_SDMCOMP_SERVICE_EXTN "CreateSDMCompServiceExtn"
-#define DESTROY_SDMCOMP_SERVICE_EXTN "DestroySDMCompServiceExtn"
+namespace sdm {
+class SDMCompServiceIntf;
 
-class SDMCompServiceExtnIntf;
-
-typedef int (*CreateSDMCompExtnIntf)(int qrtr_fd, SDMCompServiceExtnIntf **intf);
-typedef int (*DestroySDMCompExtnIntf)(SDMCompServiceExtnIntf *intf);
-
-class SDMCompServiceExtnIntf {
- public:
-  virtual void CommandHandler(const struct qrtr_packet &qrtr_pkt) = 0;
- protected:
-  virtual ~SDMCompServiceExtnIntf() { }
+enum SDMCompServiceEvents {
+  kEventSetPanelBrightness,
+  kEventSetDisplayConfig,
+  kEventImportDemuraBuffers,
+  kEventMax,
 };
 
-#endif  // __SDMCOMP_SERVICE_EXTN_INTF_H__
+struct SDMCompServiceDispConfigs {
+  uint32_t x_res = 0;
+  uint32_t y_res = 0;
+  uint32_t fps = 0;
+  bool smart_panel = false;
+  int config_idx = -1;
+};
+
+struct SDMCompServiceDemuraBufInfo {
+  int calib_buf_fd = -1;
+  int hfc_buf_fd = -1;
+  uint32_t calib_buf_size = 0;
+  uint32_t hfc_buf_size = 0;
+  uint64_t panel_id = 0;
+};
+
+class SDMCompServiceCbIntf {
+ public:
+  virtual int OnEvent(SDMCompServiceEvents event_type, ...) = 0;
+
+ protected:
+  virtual ~SDMCompServiceCbIntf() { }
+};
+
+class SDMCompServiceIntf {
+ public:
+  static int Create(SDMCompServiceCbIntf *callback, SDMCompServiceIntf **intf);
+  static int Destroy(SDMCompServiceIntf *intf);
+ protected:
+  virtual ~SDMCompServiceIntf() { }
+};
+
+}
+#endif  // __SDMCOMP_SERVICE_INTF_H__
 

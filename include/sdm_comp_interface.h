@@ -107,6 +107,8 @@ struct SDMCompDisplayAttributes {
   float x_dpi = 0.0f;         //!< Dots per inch in X-direction.
   float y_dpi = 0.0f;         //!< Dots per inch in Y-direction.
   bool is_yuv = false;        //!< If the display output is in YUV format.
+  uint32_t fps = 0;           //!< fps of the display.
+  bool smart_panel = false;   //!< Speficies the panel is video mode or command mode
 };
 
 struct ColorMode {
