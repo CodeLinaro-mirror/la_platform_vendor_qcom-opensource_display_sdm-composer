@@ -249,7 +249,7 @@ class SDMCompInterface {
             SetMinPanelBrightness(), then it ignores the request.
 
     @param[in] disp_hnd - pointer to display handle which was created during CreateDisplay()
-    @param[in] brightness_level - brightness_level of the panel
+    @param[in] brightness_level - brightness_level of the panel varies from 0.0f to 1.0f
 
     @return Returns 0 on sucess otherwise errno
   */
@@ -257,12 +257,16 @@ class SDMCompInterface {
 
   /*! @brief Method to set minimum panel brightness level
 
+    @detail This api enables client to set minimum panel brightness threshold of a given display,
+            If the set brightness level is below the minimum panel brightness threshold, Reset the
+            panel brightness level to minimum panel brightness value
+
     @param[in] disp_hnd - pointer to display handle which was created during CreateDisplay()
-    @param[in] min_brightness_level - min_brightness_level of the panel
+    @param[in] min_brightness_level - min_brightness_level of the panel varies from 0.0f to 1.0f
 
     @return Returns 0 on sucess otherwise errno
   */
- virtual int SetMinPanelBrightness(Handle disp_hnd, float min_brightness_level) = 0;
+  virtual int SetMinPanelBrightness(Handle disp_hnd, float min_brightness_level) = 0;
 
  protected:
   virtual ~SDMCompInterface() { }

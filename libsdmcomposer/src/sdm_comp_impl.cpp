@@ -231,8 +231,14 @@ int SDMCompImpl::SetMinPanelBrightness(Handle disp_hnd, float min_brightness_lev
     return -EINVAL;
   }
   SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
-  sdm_comp_display->SetMinPanelBrightness(min_brightness_level);
-  return 0;
+  int err = sdm_comp_display->SetMinPanelBrightness(min_brightness_level);
+  if (err == 0) {
+    SDMCompDisplayType disp_type = sdm_comp_display->GetDisplayType();
+    if (panel_brightness_[disp_type] < min_brightness_level) {
+      return SetPanelBrightness(disp_hnd, min_brightness_level);
+    }
+  }
+  return err;
 }
 
 int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {

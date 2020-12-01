@@ -62,7 +62,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   int GetColorModes(uint32_t *out_num_modes, struct ColorMode *out_modes);
   SDMCompDisplayType GetDisplayType() { return display_type_; }
   int SetPanelBrightness(float brightness_level);
-  void SetMinPanelBrightness(float min_brightness) { min_panel_brightness_ = min_brightness; }
+  int SetMinPanelBrightness(float min_brightness);
   int GetDisplayAttributes(int config_idx, SDMCompDisplayAttributes *display_attributes);
   int SetDisplayConfig(int config_idx);
 

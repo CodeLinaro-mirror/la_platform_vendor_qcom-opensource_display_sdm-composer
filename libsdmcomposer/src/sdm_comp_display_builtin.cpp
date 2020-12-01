@@ -391,4 +391,13 @@ int SDMCompDisplayBuiltIn::SetPanelBrightness(float brightness_level) {
   return 0;
 }
 
+int SDMCompDisplayBuiltIn::SetMinPanelBrightness(float min_brightness) {
+  if (min_brightness < 0.0f || min_brightness > 1.0) {
+    DLOGE("Invalid min brightness settings %f", min_brightness);
+    return -EINVAL;
+  }
+  min_panel_brightness_ = min_brightness;
+  return 0;
+}
+
 }  // namespace sdm
