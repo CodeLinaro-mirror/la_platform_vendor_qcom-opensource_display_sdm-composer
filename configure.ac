@@ -39,7 +39,7 @@ AC_SUBST([CC])
 AC_CONFIG_FILES([ \
         Makefile \
         libformatutils/src/Makefile \
-        libionallocator/src/Makefile \
-		libsdmcomposer/src/Makefile
+        liballocator/src/Makefile \
+        libsdmcomposer/src/Makefile
         ])
 AC_OUTPUT

@@ -2,4 +2,4 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = libformatutils/src libionallocator/src libsdmcomposer/src
+SUBDIRS = libformatutils/src liballocator/src libsdmcomposer/src

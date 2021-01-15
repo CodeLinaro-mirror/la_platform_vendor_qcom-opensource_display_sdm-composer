@@ -25,6 +25,6 @@ libsdmcomposer_la_SOURCES = $(c_sources)
 libsdmcomposer_la_CFLAGS = $(COMMON_CFLAGS)
 libsdmcomposer_la_CPPFLAGS = $(AM_CPPFLAGS) -DLOG_TAG=\"SDM\"
 libsdmcomposer_la_LIBADD := ../../libformatutils/src/libformatutils.la \
-                            ../../libionallocator/src/libionallocator.la
+                            ../../liballocator/src/liballocator.la
 libsdmcomposer_la_LDFLAGS := -shared -avoid-version -lsdmcore -lsdmutils -ldl \
                              -lpthread -lmemutils
