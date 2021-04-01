@@ -53,6 +53,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   virtual DisplayError CECMessage(char *message) { return kErrorNone; }
   virtual DisplayError HistogramEvent(int source_fd, uint32_t blob_id) { return kErrorNone; }
   virtual DisplayError HandleEvent(DisplayEvent event);
+  virtual void MMRMEvent(bool restricted) { }
 
   int Init();
   int Deinit();
