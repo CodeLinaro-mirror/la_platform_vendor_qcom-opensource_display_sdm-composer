@@ -23,6 +23,10 @@ AC_ARG_WITH(sanitized-headers,
        [Specify the location of the sanitized Linux headers]),
    [CPPFLAGS="$CPPFLAGS -I$withval"])
 
+PKG_CHECK_MODULES([LIBDMABUFHEAP], [libdmabufheap])
+AC_SUBST([LIBDMABUFHEAP_CFLAGS])
+AC_SUBST([LIBDMABUFHEAP_LIBS])
+
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
