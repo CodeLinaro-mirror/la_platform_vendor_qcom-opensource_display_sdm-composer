@@ -27,12 +27,48 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #include <errno.h>
 #include <unistd.h>
+#include <string.h>
+#include <sys/poll.h>
 
 #include <mutex>
 #include <algorithm>
-#include <thread>
 #include <cstring>
 
 #include "sdm_comp_service.h"
@@ -42,18 +78,46 @@
 
 namespace sdm {
 
-int SDMCompService::Init() {
+std::mutex SDMCompService::qrtr_lock_;
+std::vector <SDMCompServiceCbIntf *> SDMCompService::callbacks_ = {};
+int SDMCompService::qrtr_fd_ = -1;
+DynLib SDMCompService::qrtr_lib_ = {};
+MemBuf *SDMCompService::mem_buf_ = nullptr;
+DynLib SDMCompService::extension_lib_ = {};
+CreateSDMCompExtnIntf SDMCompService::create_sdm_comp_extn_intf_ = nullptr;
+DestroySDMCompExtnIntf SDMCompService::destroy_sdm_comp_extn_intf_ = nullptr;
+SDMCompServiceExtnIntf *SDMCompService::sdm_comp_service_extn_intf_ = nullptr;
+int SDMCompService::exit_thread_fd_ = -1;
+std::thread SDMCompService::event_thread_ = {};
+QrtrOpen SDMCompService::qrtr_open_ = nullptr;
+QrtrClose SDMCompService::qrtr_close_ = nullptr;
+QrtrSendTo SDMCompService::qrtr_send_to_ = nullptr;
+QrtrPublish SDMCompService::qrtr_publish_ = nullptr;
+QrtrBye SDMCompService::qrtr_bye_ = nullptr;
+QrtrDecode SDMCompService::qrtr_decode_ = nullptr;
+std::mutex SDMCompService::pending_cmd_lock_;
+std::map<int, struct qrtr_packet> SDMCompService::pending_commands_ = {};
+
+int SDMCompService::RegisterCallback(SDMCompServiceCbIntf *callback) {
   std::lock_guard<std::mutex> lock(qrtr_lock_);
+
+  if (qrtr_fd_ > 0) {
+    callbacks_.push_back(callback);
+    if (callback) {
+      HandlePendingCommands();
+    }
+    return 0;
+  }
+
   int err = 0;
   // Try to load qrtr library & get handle to its interface.
   if (qrtr_lib_.Open("libqrtr.so.1.0.0")) {
-    if (!qrtr_lib_.Sym("qrtr_open", reinterpret_cast<void **>(&QrtrOpen)) ||
-        !qrtr_lib_.Sym("qrtr_close", reinterpret_cast<void **>(&QrtrClose)) ||
-        !qrtr_lib_.Sym("qrtr_sendto", reinterpret_cast<void **>(&QrtrSendTo)) ||
-        !qrtr_lib_.Sym("qrtr_publish", reinterpret_cast<void **>(&QrtrPublish)) ||
-        !qrtr_lib_.Sym("qrtr_bye", reinterpret_cast<void **>(&QrtrBye)) ||
-        !qrtr_lib_.Sym("qrtr_poll", reinterpret_cast<void **>(&QrtrPoll)) ||
-        !qrtr_lib_.Sym("qrtr_decode", reinterpret_cast<void **>(&QrtrDecode))) {
+    if (!qrtr_lib_.Sym("qrtr_open", reinterpret_cast<void **>(&qrtr_open_)) ||
+        !qrtr_lib_.Sym("qrtr_close", reinterpret_cast<void **>(&qrtr_close_)) ||
+        !qrtr_lib_.Sym("qrtr_sendto", reinterpret_cast<void **>(&qrtr_send_to_)) ||
+        !qrtr_lib_.Sym("qrtr_publish", reinterpret_cast<void **>(&qrtr_publish_)) ||
+        !qrtr_lib_.Sym("qrtr_bye", reinterpret_cast<void **>(&qrtr_bye_)) ||
+        !qrtr_lib_.Sym("qrtr_decode", reinterpret_cast<void **>(&qrtr_decode_))) {
       DLOGE("Unable to load symbols, error = %s", qrtr_lib_.Error());
       return-ENOENT;
     }
@@ -62,15 +126,15 @@ int SDMCompService::Init() {
     return-ENOENT;
   }
 
-  qrtr_fd_ = QrtrOpen(0);
+  qrtr_fd_ = qrtr_open_(0);
   if (qrtr_fd_ < 0) {
     DLOGE("Failed to create qrtr socket");
     err = -EINVAL;
     goto cleanup;
   }
 
-  err = QrtrPublish(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
-                     SDM_COMP_SERVICE_INSTANCE);
+  err = qrtr_publish_(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
+                      SDM_COMP_SERVICE_INSTANCE);
   if (err < 0) {
     DLOGE("failed to publish rmtfs service %d", err);
     goto cleanup;
@@ -101,20 +165,49 @@ int SDMCompService::Init() {
   } else {
     DLOGW("Unable to load = %s, error = %s", EXTN_LIB_NAME, extension_lib_.Error());
   }
+  // Create an eventfd to be used to unblock the poll system call when
+  // a thread is exiting.
+  exit_thread_fd_ = Sys::eventfd_(0, 0);
 
-  init_done_ = true;
+  event_thread_ = std::thread(&SDMCompService::QRTREventHandler);
+  event_thread_.detach();
 
-  std::thread ([=] { SDMCompService::QRTREventHandler(this); }).detach();
+  callbacks_.push_back(callback);
+  if (callback) {
+    HandlePendingCommands();
+  }
 
   return 0;
 cleanup:
-  Deinit();
+  UnRegisterCallback(callback);
 
   return err;
 }
 
-int SDMCompService::Deinit() {
+int SDMCompService::UnRegisterCallback(SDMCompServiceCbIntf *callback) {
   std::lock_guard<std::mutex> lock(qrtr_lock_);
+
+  auto it = std::find(callbacks_.begin(), callbacks_.end(), callback);
+  if (it != callbacks_.end()) {
+    callbacks_.erase(it);
+  }
+
+  if (!callbacks_.empty()) {
+    return 0;
+  }
+
+  uint64_t exit_value = 1;
+  if (exit_thread_fd_ > 0) {
+    ssize_t write_size = Sys::write_(exit_thread_fd_, &exit_value, sizeof(uint64_t));
+    if (write_size != sizeof(uint64_t)) {
+      DLOGW("Error triggering exit fd (%d). write size = %d, error = %s", exit_thread_fd_,
+            write_size, strerror(errno));
+    }
+    if (event_thread_.joinable()) {
+      event_thread_.join();
+    }
+    Sys::close_(exit_thread_fd_);
+  }
 
   if (destroy_sdm_comp_extn_intf_) {
     destroy_sdm_comp_extn_intf_(sdm_comp_service_extn_intf_);
@@ -125,15 +218,16 @@ int SDMCompService::Deinit() {
   }
 
   if (qrtr_fd_ > 0) {
-    QrtrBye(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
-             SDM_COMP_SERVICE_INSTANCE);
-    QrtrClose(qrtr_fd_);
+    qrtr_bye_(qrtr_fd_, SDM_COMP_SERVICE_ID, SDM_COMP_SERVICE_VERSION,
+              SDM_COMP_SERVICE_INSTANCE);
+    qrtr_close_(qrtr_fd_);
   }
+
   return 0;
 }
 
 void SDMCompService::SendResponse(int node, int port, const Response &rsp) {
-  int ret = QrtrSendTo(qrtr_fd_, node, port, &rsp, sizeof(rsp));
+  int ret = qrtr_send_to_(qrtr_fd_, node, port, &rsp, sizeof(rsp));
   if (ret < 0) {
     DLOGE("Failed to send response for command %d ret %d", rsp.id, ret);
   }
@@ -177,11 +271,13 @@ void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pk
     DLOGI("hfc fd:%d and size :%u", demura_buf_info.hfc_buf_fd, demura_buf_info.hfc_buf_size);
   }
 
-  if (callback_) {
-    int err = callback_->OnEvent(kEventImportDemuraBuffers, &demura_buf_info);
-    DLOGI("ImportDemuraBuffers on panel_id %lu is %s", demura_mem_info->panel_id,
-          err ? "failed" : "successful");
-    rsp.status = err;
+  for (auto callback : callbacks_) {
+    if (callback) {
+      int err = callback->OnEvent(kEventImportDemuraBuffers, &demura_buf_info);
+      DLOGI("ImportDemuraBuffers on panel_id %lu is %s", demura_mem_info->panel_id,
+            err ? "failed" : "successful");
+      rsp.status = err;
+    }
   }
 
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
@@ -200,11 +296,12 @@ void SDMCompService::HandleSetBacklight(const struct qrtr_packet &qrtr_pkt) {
     SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
     return;
   }
-
-  if (callback_) {
-    int err = callback_->OnEvent(kEventSetPanelBrightness, sdm_comp_disp_type,
-                                 cmd_backlight->brightness);
-    rsp.status = err;
+  for (auto callback : callbacks_) {
+    if (callback) {
+      int err = callback->OnEvent(kEventSetPanelBrightness, sdm_comp_disp_type,
+                                  cmd_backlight->brightness);
+      rsp.status = err;
+    }
   }
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
@@ -224,14 +321,16 @@ void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt)
     return;
   }
 
-  if (callback_) {
-    SDMCompServiceDispConfigs disp_configs = {};
-    disp_configs.h_total = cmd_disp_configs->h_total;
-    disp_configs.v_total = cmd_disp_configs->v_total;
-    disp_configs.fps = cmd_disp_configs->fps;
-    disp_configs.smart_panel = cmd_disp_configs->smart_panel;
-    int err = callback_->OnEvent(kEventSetDisplayConfig, sdm_comp_disp_type, &disp_configs);
-    rsp.status = err;
+  for (auto callback : callbacks_) {
+    if (callback) {
+      SDMCompServiceDispConfigs disp_configs = {};
+      disp_configs.h_total = cmd_disp_configs->h_total;
+      disp_configs.v_total = cmd_disp_configs->v_total;
+      disp_configs.fps = cmd_disp_configs->fps;
+      disp_configs.smart_panel = cmd_disp_configs->smart_panel;
+      int err = callback->OnEvent(kEventSetDisplayConfig, sdm_comp_disp_type, &disp_configs);
+      rsp.status = err;
+    }
   }
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
@@ -253,10 +352,6 @@ void SDMCompService::HandleSetProperties(const struct qrtr_packet &qrtr_pkt) {
       cmd_set_props->props.property_list[i].value);
   }
 
-  if (callback_) {
-    int err = callback_->OnEvent(kEventSetProperties);
-    rsp.status = err;
-  }
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
 
@@ -268,10 +363,12 @@ void SDMCompService::HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt
   CmdSetPanelBootParam *cmd_set_panel_boot_param =
     reinterpret_cast<CmdSetPanelBootParam *>(&cmd->cmd_set_panel_boot_param);
 
-  if (callback_) {
-    int err = callback_->OnEvent(kEventSetPanelBootParams,
-                                 cmd_set_panel_boot_param->panel_boot_string);
-    rsp.status = err;
+  for (auto callback : callbacks_) {
+    if (callback) {
+      int err = callback->OnEvent(kEventSetPanelBootParams,
+                                  cmd_set_panel_boot_param->panel_boot_string);
+      rsp.status = err;
+    }
   }
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
@@ -298,6 +395,10 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
             VM_INTF_VERSION);
       SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
       return;
+    }
+    if (!IsRegisteredClientValid()) {
+      std::lock_guard<std::mutex> lock(pending_cmd_lock_);
+      pending_commands_.emplace(std::make_pair(cmd->id, qrtr_pkt));
     }
   }
 
@@ -328,32 +429,52 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
   }
 }
 
-int SDMCompService::QRTREventHandler(SDMCompService *sdm_comp_service) {
+void SDMCompService::QRTREventHandler() {
   struct sockaddr_qrtr soc_qrtr = {};
   struct qrtr_packet qrtr_pkt = {};
   socklen_t soc_len;
   char buf[4096] = {};
+  struct pollfd poll_fd[2] = {-1};
+
+  qrtr_lock_.lock();
+  // Add qrtr socket fd
+  poll_fd[0].fd = qrtr_fd_;
+  poll_fd[0].revents = 0;
+  poll_fd[0].events = POLLIN | POLLERR;
+  qrtr_lock_.unlock();
+
+  // Add event fd to exit the thread
+  poll_fd[1].fd = exit_thread_fd_;
+  poll_fd[1].revents = 0;
+  poll_fd[1].events = POLLIN;
+  // Clear any existing data
+  Sys::pread_(exit_thread_fd_, buf, 4096, 0);
+
   DLOGI("Start listening to the client request %d", SDM_COMP_SERVICE_ID);
-  while(sdm_comp_service->init_done_) {
-    int ret = sdm_comp_service->QrtrPoll(sdm_comp_service->qrtr_fd_, -1);
+  while(!callbacks_.empty()) {
+    int ret = poll(poll_fd, sizeof(poll_fd) / sizeof(struct pollfd), -1);
     if (ret < 0) {
       continue;
     }
 
+    if (!(poll_fd[0].revents & POLLIN || poll_fd[0].revents & POLLERR)) {
+      continue;
+    }
+
     soc_len = sizeof(soc_qrtr);
-    ret = recvfrom(sdm_comp_service->qrtr_fd_, buf, sizeof(buf), 0, (sockaddr *)&soc_qrtr,
+    ret = recvfrom(qrtr_fd_, buf, sizeof(buf), 0, (sockaddr *)&soc_qrtr,
                    &soc_len);
     if (ret < 0) {
       if (errno == EAGAIN) {
         continue;
       }
-      return ret;
+      return;
     }
 
     {
-      std::lock_guard<std::mutex> lock(sdm_comp_service->qrtr_lock_);
+      std::lock_guard<std::mutex> lock(qrtr_lock_);
 
-      ret = sdm_comp_service->QrtrDecode(&qrtr_pkt, buf, ret, &soc_qrtr);
+      ret = qrtr_decode_(&qrtr_pkt, buf, ret, &soc_qrtr);
       if (ret < 0) {
         DLOGE("failed to decode incoming message");
         continue;
@@ -369,13 +490,12 @@ int SDMCompService::QRTREventHandler(SDMCompService *sdm_comp_service) {
           break;
 
         case QRTR_TYPE_DATA:
-          sdm_comp_service->CommandHandler(qrtr_pkt);
+          CommandHandler(qrtr_pkt);
           break;
       }
     }
   }
-
-  return 0;
+  DLOGI("Exiting qrtr event thread");
 }
 
 SDMCompDisplayType SDMCompService::GetSDMCompDisplayType(DisplayType disp_type) {
@@ -387,6 +507,41 @@ SDMCompDisplayType SDMCompService::GetSDMCompDisplayType(DisplayType disp_type) 
     default:
       return kSDMCompDisplayTypeMax;
   }
+}
+
+void SDMCompService::HandlePendingCommands() {
+  std::lock_guard<std::mutex> lock(pending_cmd_lock_);
+  for (auto cmd : pending_commands_) {
+    switch (cmd.first) {
+      case kCmdExportDemuraBuffers:
+        HandleImportDemuraBuffers(cmd.second);
+        break;
+      case kCmdSetBacklight: {
+        HandleSetBacklight(cmd.second);
+      } break;
+      case kCmdSetDisplayConfig: {
+        HandleSetDisplayConfigs(cmd.second);
+      } break;
+      case kCmdSetProperties: {
+        HandleSetProperties(cmd.second);
+      } break;
+      case kCmdSetPanelBootParams: {
+        HandleSetPanelBootParams(cmd.second);
+      } break;
+      default:
+        break;
+    }
+  }
+  pending_commands_.clear();
+}
+
+bool SDMCompService::IsRegisteredClientValid() {
+  for (auto callback : callbacks_) {
+    if (callback) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }
