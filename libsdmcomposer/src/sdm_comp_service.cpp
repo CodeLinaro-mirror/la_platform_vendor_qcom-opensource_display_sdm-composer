@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -250,7 +250,7 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
   rsp.id = cmd->id;
 
   if (cmd->id < kCmdMax) {
-    if (cmd->version != VM_INTF_VERSION) {
+    if (cmd->version > VM_INTF_VERSION) {
       DLOGE("Invalid vm interface client version %x, supported version %x", cmd->version,
             VM_INTF_VERSION);
       SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
