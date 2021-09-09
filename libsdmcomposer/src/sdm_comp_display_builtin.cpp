@@ -112,23 +112,26 @@ int SDMCompDisplayBuiltIn::Deinit() {
   return 0;
 }
 
-int SDMCompDisplayBuiltIn::GetDisplayAttributes(int config_idx,
-                                                SDMCompDisplayAttributes *display_attributes) {
-  if (!display_attributes) {
+int SDMCompDisplayBuiltIn::GetNumVariableInfoConfigs(uint32_t *count) {
+  if (!count) {
     return -EINVAL;
   }
-  DisplayConfigVariableInfo variable_info = {};
+  DisplayError error = display_intf_->GetNumVariableInfoConfigs(count);
+  if (error != kErrorNone) {
+    return -EINVAL;
+  }
+  return 0;
+}
 
-  display_intf_->GetConfig(config_idx, &variable_info);
-  display_attributes->x_res = variable_info.x_pixels;
-  display_attributes->y_res = variable_info.y_pixels;
-  display_attributes->x_dpi = variable_info_.x_dpi;
-  display_attributes->y_dpi = variable_info_.y_dpi;
-  display_attributes->vsync_period = variable_info_.vsync_period_ns;
-  display_attributes->is_yuv = variable_info_.is_yuv;
-  display_attributes->fps = variable_info.fps;
-  display_attributes->smart_panel = variable_info.smart_panel;
-
+int SDMCompDisplayBuiltIn::GetDisplayConfig(int config_idx,
+                                            DisplayConfigVariableInfo *variable_info) {
+  if (!variable_info) {
+    return -EINVAL;
+  }
+  DisplayError error = display_intf_->GetConfig(config_idx, variable_info);
+  if (error != kErrorNone) {
+    return -EINVAL;
+  }
   return 0;
 }
 

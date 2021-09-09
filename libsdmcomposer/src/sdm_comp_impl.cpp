@@ -283,8 +283,8 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
     } else {
       pending_events_.emplace(std::make_pair(kEventSetDisplayConfig, disp_type));
       disp_configs_[disp_type] = *disp_configs;
-      DLOGI("Cache display config idx %d, WxH %dx%d, fps %d, %s panel for display type %d",
-            disp_configs->config_idx, disp_configs->x_res, disp_configs->y_res, disp_configs->fps,
+      DLOGI("Cache display h_total %d, vtotal %d, fps %d, %s panel for display type %d",
+            disp_configs->h_total, disp_configs->v_total, disp_configs->fps,
             disp_configs->smart_panel ? "cmdmode" : "videomode", disp_type);
     }
   } break;
@@ -343,25 +343,27 @@ void SDMCompImpl::HandlePendingEvents() {
     SDMCompDisplayType display_type = pending_event.second;
     switch (pending_event.first) {
     case kEventSetDisplayConfig: {
-      SDMCompDisplayAttributes disp_attributes = {};
-      int config_idx = disp_configs_[display_type].config_idx;
-      int err = display_builtin_[display_type]->GetDisplayAttributes(config_idx, &disp_attributes);
-      if (err == 0) {
-        if (disp_attributes.x_res != disp_configs_[display_type].x_res ||
-            disp_attributes.y_res != disp_configs_[display_type].y_res ||
-            disp_attributes.fps != disp_configs_[display_type].fps ||
-            disp_attributes.smart_panel != disp_configs_[display_type].smart_panel) {
-          DLOGW("Invalid display attributes for the given mode");
-          continue;
+      uint32_t num_configs = 0;
+      int err = display_builtin_[display_type]->GetNumVariableInfoConfigs(&num_configs);
+      for (uint32_t config_idx = 0; config_idx < num_configs; config_idx++) {
+        DisplayConfigVariableInfo variable_info = {};
+        int err = display_builtin_[display_type]->GetDisplayConfig(config_idx, &variable_info);
+        if (err == 0) {
+          if (variable_info.h_total != disp_configs_[display_type].h_total ||
+              variable_info.v_total != disp_configs_[display_type].v_total ||
+              variable_info.fps != disp_configs_[display_type].fps ||
+              variable_info.smart_panel != disp_configs_[display_type].smart_panel) {
+            continue;
+          }
+          err = display_builtin_[display_type]->SetDisplayConfig(config_idx);
+          if (err != 0) {
+            continue;
+          }
+          DLOGI("Setting display config idx %d, WxH %dx%d, fps %d, %s panel for display type %d",
+                config_idx, variable_info.x_pixels, variable_info.y_pixels, variable_info.fps,
+                disp_configs_[display_type].smart_panel ? "cmdmode" : "videomode", display_type);
+          break;
         }
-        err = display_builtin_[display_type]->SetDisplayConfig(config_idx);
-        if (err != 0) {
-          continue;
-        }
-        DLOGI("Setting display config idx %d, WxH %dx%d, fps %d, %s panel for display type %d",
-              disp_configs_[display_type].config_idx, disp_configs_[display_type].x_res,
-              disp_configs_[display_type].y_res, disp_configs_[display_type].fps,
-              disp_configs_[display_type].smart_panel ? "cmdmode" : "videomode", display_type);
       }
     } break;
 

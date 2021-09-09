@@ -64,7 +64,8 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   SDMCompDisplayType GetDisplayType() { return display_type_; }
   int SetPanelBrightness(float brightness_level);
   int SetMinPanelBrightness(float min_brightness);
-  int GetDisplayAttributes(int config_idx, SDMCompDisplayAttributes *display_attributes);
+  int GetNumVariableInfoConfigs(uint32_t *count);
+  int GetDisplayConfig(int config_idx, DisplayConfigVariableInfo *variable_info);
   int SetDisplayConfig(int config_idx);
 
  private:

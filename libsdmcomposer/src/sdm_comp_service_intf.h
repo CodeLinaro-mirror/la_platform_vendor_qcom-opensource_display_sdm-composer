@@ -45,11 +45,10 @@ enum SDMCompServiceEvents {
 };
 
 struct SDMCompServiceDispConfigs {
-  uint32_t x_res = 0;
-  uint32_t y_res = 0;
+  uint32_t h_total = 0;
+  uint32_t v_total = 0;
   uint32_t fps = 0;
   bool smart_panel = false;
-  int config_idx = -1;
 };
 
 struct SDMCompServiceDemuraBufInfo {

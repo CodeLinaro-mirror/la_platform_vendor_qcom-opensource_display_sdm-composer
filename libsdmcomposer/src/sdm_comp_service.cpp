@@ -226,11 +226,10 @@ void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt)
 
   if (callback_) {
     SDMCompServiceDispConfigs disp_configs = {};
-    disp_configs.x_res = cmd_disp_configs->x_pixels;
-    disp_configs.y_res = cmd_disp_configs->y_pixels;
+    disp_configs.h_total = cmd_disp_configs->h_total;
+    disp_configs.v_total = cmd_disp_configs->v_total;
     disp_configs.fps = cmd_disp_configs->fps;
     disp_configs.smart_panel = cmd_disp_configs->smart_panel;
-    disp_configs.config_idx = cmd_disp_configs->config_idx;
     int err = callback_->OnEvent(kEventSetDisplayConfig, sdm_comp_disp_type, &disp_configs);
     rsp.status = err;
   }
