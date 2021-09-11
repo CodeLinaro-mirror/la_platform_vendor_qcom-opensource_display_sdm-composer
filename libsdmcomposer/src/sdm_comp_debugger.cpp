@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,6 +35,7 @@
 #include <utils/constants.h>
 #include "sdm_comp_debugger.h"
 #include <string>
+#include <cstring>
 
 using std::string;
 
@@ -264,11 +265,39 @@ int  SDMCompDebugHandler::GetIdleTimeoutMs() {
 }
 
 int SDMCompDebugHandler::GetProperty(const char *property_name, int *value) {
-  return kErrorNotSupported;
+  if (!property_name || !value)
+    return kErrorNotSupported;
+
+  auto it = properties_map_.find(property_name);
+  if (it != properties_map_.end())
+    *value = std::stoi(it->second);
+  else
+    return kErrorUndefined;
+
+  return kErrorNone;
 }
 
 int SDMCompDebugHandler::GetProperty(const char *property_name, char *value) {
-  return kErrorNotSupported;
+  if (!property_name || !value)
+    return kErrorNotSupported;
+
+  auto it = properties_map_.find(property_name);
+  if (it != properties_map_.end())
+    std::snprintf(value, it->second.size(), "%s", it->second.c_str());
+  else
+    return kErrorUndefined;
+
+  return kErrorNone;
+}
+
+int SDMCompDebugHandler::SetProperty(const char *property_name, const char *value) {
+  if (!property_name || !value) {
+    Error("SetProperty: failed to set property_name :%s :: %s\n", property_name, value);
+    return kErrorNotSupported;
+  }
+
+  properties_map_.emplace(std::string(property_name), std::string(value));
+  return kErrorNone;
 }
 
 }  // namespace sdm

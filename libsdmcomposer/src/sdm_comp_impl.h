@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without modification, are permitted
 * provided that the following conditions are met:
@@ -42,15 +42,32 @@ namespace sdm {
 using std::recursive_mutex;
 using std::lock_guard;
 
+class SDMCompIPCImpl : public IPCIntf {
+public:
+  int Init() { return 0; }
+  int Deinit();
+  int SetParameter(IPCParams param, const GenericPayload &in);
+  int GetParameter(IPCParams param, GenericPayload *out);
+  int ProcessOps(IPCOps op, const GenericPayload &in, GenericPayload *out);
+
+private:
+  std::map<uint64_t, SDMCompServiceDemuraBufInfo > calib_buf_info_ {};
+  SDMCompServiceDemuraBufInfo hfc_buf_info_ {};
+};
+
 class SDMCompImpl : public SDMCompInterface, SDMCompServiceCbIntf {
  public:
   static SDMCompImpl *GetInstance();
+  static void CoreInterfaceCb(CoreInterface *core_intf);
+  virtual ~SDMCompImpl() { }
 
   int Init();
   int Deinit();
+  int SetParameter(IPCParams param, const GenericPayload &in);
+  int GetParameter(IPCParams param, GenericPayload *out);
+  int ProcessOps(IPCOps op, const GenericPayload &in, GenericPayload *out);
 
  protected:
-  virtual ~SDMCompImpl() { }
   virtual int CreateDisplay(SDMCompDisplayType display_type, CallbackInterface *callback,
                             Handle *disp_hnd);
   virtual int DestroyDisplay(Handle disp_hnd);
@@ -74,11 +91,10 @@ class SDMCompImpl : public SDMCompInterface, SDMCompServiceCbIntf {
   SDMCompBufferAllocator buffer_allocator_;
   SDMCompBufferSyncHandler buffer_sync_handler_;
   SDMCompServiceIntf *sdm_comp_service_intf_ = nullptr;
-  recursive_mutex recursive_mutex_;
   float panel_brightness_[kSDMCompDisplayTypeMax] = {0.0f};
   SDMCompServiceDispConfigs disp_configs_[kSDMCompDisplayTypeMax] = {};
-  SDMCompServiceDemuraBufInfo demura_buf_info_[kSDMCompDisplayTypeMax] = {};
   std::map<SDMCompServiceEvents, SDMCompDisplayType> pending_events_ = {};
+  std::shared_ptr<SDMCompIPCImpl> ipc_intf_;
 };
 
 }  // namespace sdm

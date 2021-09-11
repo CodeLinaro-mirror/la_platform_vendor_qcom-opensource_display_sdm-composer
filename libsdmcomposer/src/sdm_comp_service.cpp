@@ -33,9 +33,10 @@
 #include <mutex>
 #include <algorithm>
 #include <thread>
+#include <cstring>
 
 #include "sdm_comp_service.h"
-#include "debug_handler.h"
+#include "sdm_comp_debugger.h"
 
 #define __CLASS__ "SDMCompService"
 
@@ -145,37 +146,40 @@ void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pk
   rsp.id = cmd->id;
   DemuraMemInfo *demura_mem_info = &cmd->cmd_export_demura_buf.demura_mem_info;
   SDMCompServiceDemuraBufInfo demura_buf_info = {};
-  SDMCompDisplayType sdm_comp_disp_type = GetSDMCompDisplayType(demura_mem_info->disp_type);
 
-  if (sdm_comp_disp_type == kSDMCompDisplayTypeMax) {
-    DLOGE("Invalid display_type %d", sdm_comp_disp_type);
-    rsp.status = -EINVAL;
-    SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
-    return;
+  if (demura_mem_info->calib_mem_hdl != -1) {
+    int error = mem_buf_->Import(demura_mem_info->calib_mem_hdl, &demura_buf_info.calib_buf_fd);
+    if (error != 0) {
+      DLOGW("Import failed with %d", error);
+      rsp.status = error;
+      SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+      return;
+    }
+    demura_buf_info.calib_buf_size = demura_mem_info->calib_mem_size;
+    demura_buf_info.calib_payload_size = demura_mem_info->calib_payload_size;
+    demura_buf_info.panel_id = demura_mem_info->panel_id;
+    std::memcpy(demura_buf_info.file_name, demura_mem_info->file_name,
+        sizeof demura_mem_info->file_name);
+
+    DLOGI("raw fd:%d and size :%u", demura_buf_info.calib_buf_fd, demura_buf_info.calib_buf_size);
   }
 
-  int error = mem_buf_->Import(demura_mem_info->calib_mem_hdl, &demura_buf_info.calib_buf_fd);
-  if (error != 0) {
-    DLOGW("Import failed with %d", error);
-    rsp.status = error;
-    SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
-    return;
-  }
+  if (demura_mem_info->hfc_mem_hdl != -1) {
+    int error = mem_buf_->Import(demura_mem_info->hfc_mem_hdl, &demura_buf_info.hfc_buf_fd);
+    if (error != 0) {
+      DLOGW("Import failed with %d", error);
+      close(demura_buf_info.calib_buf_fd);
+      rsp.status = error;
+    }
+    demura_buf_info.hfc_buf_size = demura_mem_info->hfc_mem_size;
+    demura_buf_info.panel_id = demura_mem_info->panel_id;
 
-  error = mem_buf_->Import(demura_mem_info->hfc_mem_hdl, &demura_buf_info.hfc_buf_fd);
-  if (error != 0) {
-    DLOGW("Import failed with %d", error);
-    close(demura_buf_info.calib_buf_fd);
-    rsp.status = error;
+    DLOGI("hfc fd:%d and size :%u", demura_buf_info.hfc_buf_fd, demura_buf_info.hfc_buf_size);
   }
-
-  demura_buf_info.calib_buf_size = demura_mem_info->calib_mem_size;
-  demura_buf_info.hfc_buf_size = demura_mem_info->hfc_mem_size;
-  demura_buf_info.panel_id = demura_mem_info->panel_id;
 
   if (callback_) {
-    int err = callback_->OnEvent(kEventImportDemuraBuffers, sdm_comp_disp_type, &demura_buf_info);
-    DLOGI("ImportDemuraBuffers on display type %d is %s", demura_mem_info->disp_type,
+    int err = callback_->OnEvent(kEventImportDemuraBuffers, &demura_buf_info);
+    DLOGI("ImportDemuraBuffers on panel_id %lu is %s", demura_mem_info->panel_id,
           err ? "failed" : "successful");
     rsp.status = err;
   }
@@ -233,6 +237,30 @@ void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt)
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
 
+void SDMCompService::HandleSetProperties(const struct qrtr_packet &qrtr_pkt) {
+  Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
+  Response rsp = {};
+  rsp.id = cmd->id;
+
+  CmdSetProperties *cmd_set_props =
+    reinterpret_cast<CmdSetProperties *>(&cmd->cmd_set_properties);
+
+  for (int i = 0; i < cmd_set_props->props.count; i++) {
+    SDMCompDebugHandler *sdm_comp_dbg_handler =
+                         static_cast<SDMCompDebugHandler *>(SDMCompDebugHandler::Get());
+    sdm_comp_dbg_handler->SetProperty(cmd_set_props->props.property_list[i].prop_name,
+      cmd_set_props->props.property_list[i].value);
+    DLOGI("prop idx : %d, name: %s, value :%s", i, cmd_set_props->props.property_list[i].prop_name,
+      cmd_set_props->props.property_list[i].value);
+  }
+
+  if (callback_) {
+    int err = callback_->OnEvent(kEventSetProperties);
+    rsp.status = err;
+  }
+  SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+}
+
 void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
   Response rsp = {};
   rsp.status = -EINVAL;
@@ -270,6 +298,9 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
     } break;
     case kCmdSetDisplayConfig: {
       HandleSetDisplayConfigs(qrtr_pkt);
+    } break;
+    case kCmdSetProperties: {
+      HandleSetProperties(qrtr_pkt);
     } break;
     default:
       if (sdm_comp_service_extn_intf_) {

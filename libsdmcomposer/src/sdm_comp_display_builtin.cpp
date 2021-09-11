@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -72,7 +72,7 @@ int SDMCompDisplayBuiltIn::Init() {
   display_intf_->GetConfig(active_config_, &variable_info_);
   display_intf_->SetCompositionState(kCompositionGPU, false);
 
-  CreateLayerStack();
+  CreateLayerSet();
   error = display_intf_->GetStcColorModes(&stc_mode_list_);
   if (error != kErrorNone) {
     DLOGW("Failed to get Stc color modes, error %d", error);
@@ -85,7 +85,7 @@ int SDMCompDisplayBuiltIn::Init() {
 
   return status;
 cleanup:
-  DestroyLayerStack();
+  DestroyLayerSet();
   core_intf_->DestroyDisplay(display_intf_);
   return status;
 }
@@ -103,7 +103,7 @@ int SDMCompDisplayBuiltIn::Deinit() {
     }
   }
 
-  DestroyLayerStack();
+  DestroyLayerSet();
   error = core_intf_->DestroyDisplay(display_intf_);
   if (error != kErrorNone) {
     DLOGE("Display destroy failed. Error = %d", error);
@@ -305,7 +305,7 @@ int SDMCompDisplayBuiltIn::GetColorModes(uint32_t *out_num_modes, struct ColorMo
   return 0;
 }
 
-void SDMCompDisplayBuiltIn::CreateLayerStack() {
+void SDMCompDisplayBuiltIn::CreateLayerSet() {
   Layer *layer = new Layer();
   layer->flags.updating = 1;
 
@@ -323,15 +323,14 @@ void SDMCompDisplayBuiltIn::CreateLayerStack() {
   layer->frame_rate = variable_info_.fps;
   layer->blending = kBlendingPremultiplied;
 
-  layer_stack_.layers.push_back(layer);
+  layer_set_.push_back(layer);
 }
 
-void SDMCompDisplayBuiltIn::DestroyLayerStack() {
+void SDMCompDisplayBuiltIn::DestroyLayerSet() {
   // Remove any layer if any and clear layer stack
-  for (Layer *layer : layer_stack_.layers) {
-    delete layer;
-  }
-  layer_stack_.layers.clear();
+  for (Layer *layer : layer_set_)
+      delete layer;
+  layer_set_.clear();
 }
 
 int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
@@ -339,7 +338,7 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
     DLOGE("buf_handle pointer is null");
     return -EINVAL;
   }
-  Layer *layer = layer_stack_.layers.at(0);
+  Layer *layer = layer_set_.at(0);
   BufferFormat buf_format = GetSDMCompFormat(layer->input_buffer.format);
 
   layer->input_buffer.width = buf_handle->width;
@@ -357,6 +356,9 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
 
   DLOGI("WxHxF %dx%dx%d", layer->input_buffer.width, layer->input_buffer.height,
         layer->input_buffer.format);
+
+  for (auto &it : layer_set_)
+    layer_stack_.layers.push_back(it);
 
   return 0;
 }

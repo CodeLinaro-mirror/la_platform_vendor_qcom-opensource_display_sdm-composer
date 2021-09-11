@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,6 +40,7 @@ enum SDMCompServiceEvents {
   kEventSetPanelBrightness,
   kEventSetDisplayConfig,
   kEventImportDemuraBuffers,
+  kEventSetProperties,
   kEventMax,
 };
 
@@ -57,6 +58,8 @@ struct SDMCompServiceDemuraBufInfo {
   uint32_t calib_buf_size = 0;
   uint32_t hfc_buf_size = 0;
   uint64_t panel_id = 0;
+  uint32_t calib_payload_size = 0;
+  char file_name[128];
 };
 
 class SDMCompServiceCbIntf {

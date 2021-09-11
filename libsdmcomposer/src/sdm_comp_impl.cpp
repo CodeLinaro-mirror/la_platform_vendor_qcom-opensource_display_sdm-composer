@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without modification, are permitted
 * provided that the following conditions are met:
@@ -22,9 +22,13 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <thread>
 #include "sdm_comp_impl.h"
 #include "core/sdm_types.h"
 #include "debug_handler.h"
+#include "core/ipc_interface.h"
+#include "vm_interface.h"
+#include "private/generic_payload.h"
 
 #define __CLASS__ "SDMCompImpl"
 
@@ -34,6 +38,12 @@ SDMCompImpl *SDMCompImpl::sdm_comp_impl_ = nullptr;
 SDMCompDisplayBuiltIn *SDMCompImpl::display_builtin_[kSDMCompDisplayTypeMax] = { nullptr };
 uint32_t SDMCompImpl::ref_count_ = 0;
 uint32_t SDMCompImpl::disp_ref_count_[kSDMCompDisplayTypeMax] = { 0 };
+recursive_mutex recursive_mutex_;
+
+void SDMCompImpl::CoreInterfaceCb(CoreInterface *obj)
+{
+  obj->ReserveDemuraResources();
+}
 
 SDMCompImpl *SDMCompImpl::GetInstance() {
   if (!sdm_comp_impl_) {
@@ -55,8 +65,9 @@ int SDMCompImpl::Init() {
     return ret;
   }
 
-  DisplayError error = CoreInterface::CreateCore(&buffer_allocator_, &buffer_sync_handler_,
-                                                 NULL, NULL, &core_intf_);
+  ipc_intf_ = std::make_shared<SDMCompIPCImpl>();
+  DisplayError error = CoreInterface::CreateCore(&buffer_allocator_, &buffer_sync_handler_, NULL,
+                                                 ipc_intf_, &core_intf_);
   if (error != kErrorNone) {
     DLOGE("Failed to create CoreInterface");
     SDMCompServiceIntf::Destroy(sdm_comp_service_intf_);
@@ -83,6 +94,7 @@ int SDMCompImpl::Deinit() {
       }
       delete sdm_comp_impl_;
       sdm_comp_impl_ = nullptr;
+      ipc_intf_->Deinit();
     }
   }
   return 0;
@@ -278,17 +290,46 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
   } break;
 
   case kEventImportDemuraBuffers: {
-    SDMCompDisplayType disp_type = (SDMCompDisplayType)(va_arg(arguments, int));
     SDMCompServiceDemuraBufInfo *demura_buf_info =
         reinterpret_cast<SDMCompServiceDemuraBufInfo*>(va_arg(arguments, Handle));
-    if (display_builtin_[disp_type]) {
-      DLOGW("Import demura buffers is not supported in the middle of TUI session");
-      err = -ENOTSUP;
-    } else {
-      demura_buf_info_[disp_type] = *demura_buf_info;
+    if (demura_buf_info && ipc_intf_) {
+      GenericPayload pl;
+      int ret = 0;
+      SDMCompServiceDemuraBufInfo* buffer = nullptr;
+      if ((ret = pl.CreatePayload<SDMCompServiceDemuraBufInfo>(buffer))) {
+        DLOGE("Failed to create payload for BufferInfo, error = %d", ret);
+        return kErrorResources;
+      }
+      buffer->calib_buf_fd = demura_buf_info->calib_buf_fd;
+      buffer->hfc_buf_fd = demura_buf_info->hfc_buf_fd;
+      buffer->calib_buf_size = demura_buf_info->calib_buf_size;
+      buffer->hfc_buf_size = demura_buf_info->hfc_buf_size;
+      buffer->calib_payload_size = demura_buf_info->calib_payload_size;
+      buffer->panel_id = demura_buf_info->panel_id;
+      buffer->calib_payload_size = demura_buf_info->calib_payload_size;
+      std::memcpy(buffer->file_name, demura_buf_info->file_name,
+        sizeof demura_buf_info->file_name);
+      if ((ret = ipc_intf_->SetParameter(kIpcParamSetDemuraBuffer, pl))) {
+        DLOGE("Failed to Cache the demura Buffers");
+        return ret;
+      }
+      if (demura_buf_info->calib_buf_fd > 0)
+        std::thread(CoreInterfaceCb, core_intf_).detach();
     }
   } break;
-
+  case kEventSetProperties: {
+    DisplayError error = CoreInterface::DestroyCore();
+    if (error != kErrorNone) {
+      DLOGE("Display core de-initialization failed. Error = %d", error);
+      return -EINVAL;
+    }
+    error = CoreInterface::CreateCore(&buffer_allocator_, &buffer_sync_handler_, NULL,
+                                      ipc_intf_, &core_intf_);
+    if (error != kErrorNone) {
+      DLOGE("Failed to create CoreInterface");
+      return -EINVAL;
+    }
+  } break;
   default:
     err = -EINVAL;
     break;
@@ -337,4 +378,93 @@ void SDMCompImpl::HandlePendingEvents() {
   pending_events_.clear();
 }
 
+int SDMCompIPCImpl::SetParameter(IPCParams param, const GenericPayload &in) {
+  int ret = 0;
+  switch(param) {
+  case kIpcParamSetDemuraBuffer: {
+    SDMCompServiceDemuraBufInfo *buf_info = nullptr;
+    uint32_t sz = 0;
+    if ((ret = in.GetPayload(buf_info, &sz))) {
+      DLOGE("Failed to get input payload error = %d", ret);
+      return ret;
+    }
+    if (buf_info->calib_buf_fd > 0) {
+      calib_buf_info_.emplace(std::make_pair(buf_info->panel_id, *buf_info));
+    } else if (buf_info->hfc_buf_fd > 0) {
+      hfc_buf_info_.hfc_buf_fd = buf_info->hfc_buf_fd;
+      hfc_buf_info_.hfc_buf_size = buf_info->hfc_buf_size;
+      hfc_buf_info_.panel_id = buf_info->panel_id;
+    } else {
+      DLOGW("Failed to import both Calibration and HFC buffers");
+    }
+  } break;
+  default:
+    break;
+  }
+  return 0;
+}
+
+int SDMCompIPCImpl::GetParameter(IPCParams param, GenericPayload *out) {
+  (void)param;
+  (void)out;
+  DLOGE("GetParameter on param %d is not supported", param);
+  return -ENOTSUP;
+}
+
+int SDMCompIPCImpl::ProcessOps(IPCOps op, const GenericPayload &in, GenericPayload *out) {
+  lock_guard<recursive_mutex> obj(recursive_mutex_);
+  if (!out) {
+    return -EINVAL;
+  }
+  int ret = 0;
+  switch(op) {
+  case kIpcOpsImportBuffers: {
+    IPCImportBufInParams *buf_in_params = nullptr;
+    IPCImportBufOutParams *buf_out_params = nullptr;
+    uint32_t sz = 0;
+    if ((ret = in.GetPayload(buf_in_params, &sz))) {
+      DLOGE("Failed to get input payload error = %d", ret);
+      return ret;
+    }
+    if ((ret = out->GetPayload(buf_out_params, &sz))) {
+      DLOGE("Failed to get output payload error = %d", ret);
+      return ret;
+    }
+
+    if (buf_in_params->req_buf_type == kIpcBufferTypeDemuraHFC) {
+      IPCBufferInfo buf;
+      buf.fd = hfc_buf_info_.hfc_buf_fd;
+      buf.size = hfc_buf_info_.hfc_buf_size;
+      buf.panel_id = hfc_buf_info_.panel_id;
+      buf_out_params->buffers.push_back(buf);
+      DLOGI("ProcessOps: hfc fd:%d and size :%u", hfc_buf_info_.hfc_buf_fd,
+        hfc_buf_info_.hfc_buf_size);
+    } else if (buf_in_params->req_buf_type == kIpcBufferTypeDemuraCalib) {
+      for (auto &it : calib_buf_info_) {
+        IPCBufferInfo buf;
+        buf.panel_id = it.first;
+        buf.fd = it.second.calib_buf_fd;
+        buf.size = it.second.calib_buf_size;
+        buf.payload_sz = it.second.calib_payload_size;
+        std::memcpy(buf.file_name, it.second.file_name, sizeof  it.second.file_name);
+        buf_out_params->buffers.push_back(buf);
+        std::snprintf(buf.file_name, sizeof buf.file_name, "%s", it.second.file_name);
+        DLOGI("ProcessOps: raw fd:%d and size :%u", it.second.calib_buf_fd,
+          it.second.calib_buf_size);
+      }
+    } else {
+      DLOGE("Invalid buffer type\n");
+    }
+  } break;
+
+  default:
+    break;
+  }
+  return 0;
+}
+
+int SDMCompIPCImpl::Deinit() {
+  calib_buf_info_ = {};
+  hfc_buf_info_ = {};
+}
 }  // namespace sdm

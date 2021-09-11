@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -68,8 +68,8 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   int SetDisplayConfig(int config_idx);
 
  private:
-  void CreateLayerStack();
-  void DestroyLayerStack();
+  void CreateLayerSet();
+  void DestroyLayerSet();
   int PrepareLayerStack(BufferHandle *buf_handle);
 
   void PopulateColorModes();
@@ -93,6 +93,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   std::map<ColorPrimaries, TransferMap> color_mode_map_ = {};
   float min_panel_brightness_ = 0.0f;
   bool validated_ = false;
+  std::vector<Layer *> layer_set_ = {};
 };
 
 }  // namespace sdm

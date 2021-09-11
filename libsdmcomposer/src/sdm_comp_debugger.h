@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -33,6 +33,7 @@
 #include <core/sdm_types.h>
 #include <debug_handler.h>
 #include <bitset>
+#include <map>
 
 namespace sdm {
 
@@ -67,11 +68,13 @@ class SDMCompDebugHandler : public DebugHandler {
   virtual void EndTrace();
   virtual int GetProperty(const char *property_name, int *value);
   virtual int GetProperty(const char *property_name, char *value);
+  int SetProperty(const char *property_name, const char *value);
 
  private:
   static SDMCompDebugHandler debug_handler_;
   std::bitset<32> log_mask_;
   int32_t verbose_level_;
+  std::map<std::string, std::string> properties_map_;
 };
 
 }  // namespace sdm
