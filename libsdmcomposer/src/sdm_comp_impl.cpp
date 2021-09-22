@@ -42,7 +42,8 @@ recursive_mutex recursive_mutex_;
 
 void SDMCompImpl::CoreInterfaceCb(CoreInterface *obj)
 {
-  obj->ReserveDemuraResources();
+  if (obj)
+    obj->ReserveDemuraResources();
 }
 
 SDMCompImpl *SDMCompImpl::GetInstance() {
@@ -313,23 +314,14 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
         DLOGE("Failed to Cache the demura Buffers");
         return ret;
       }
+      /* TODO(user): Enable demura by passing valid core_intf_ pointer.
+         Currently its disabled */
       if (demura_buf_info->calib_buf_fd > 0)
-        std::thread(CoreInterfaceCb, core_intf_).detach();
+        std::thread(CoreInterfaceCb, nullptr).detach();
     }
   } break;
-  case kEventSetProperties: {
-    DisplayError error = CoreInterface::DestroyCore();
-    if (error != kErrorNone) {
-      DLOGE("Display core de-initialization failed. Error = %d", error);
-      return -EINVAL;
-    }
-    error = CoreInterface::CreateCore(&buffer_allocator_, &buffer_sync_handler_, NULL,
-                                      ipc_intf_, &core_intf_);
-    if (error != kErrorNone) {
-      DLOGE("Failed to create CoreInterface");
-      return -EINVAL;
-    }
-  } break;
+  case kEventSetProperties:
+    break;
   default:
     err = -EINVAL;
     break;
