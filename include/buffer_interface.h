@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without modification, are permitted
 * provided that the following conditions are met:
@@ -72,6 +72,13 @@ enum BufferFormat {
   kBufferFormatRGBX1010102Ubwc,  //!< UBWC aligned RGBX1010102 format
 };
 
+struct Rect {
+  float left = 0.0f;            //!< Specifies the left coordinates of the pixel buffer
+  float top = 0.0f;             //!< Specifies the top coordinates of the pixel buffer
+  float right = 0.0f;           //!< Specifies the right coordinates of the pixel buffer
+  float bottom = 0.0f;          //!< Specifies the bottom coordinates of the pixel buffer
+};
+
 struct BufferHandle {
   int32_t fd = -1;                             //!< fd of the allocated buffer to be displayed.
   int32_t producer_fence_fd = -1;              //!< Created and signaled by the producer. Consumer
@@ -90,6 +97,8 @@ struct BufferHandle {
   bool uncached = false;                       //!< Enable or disable buffer caching during R/W
   int64_t buffer_id = -1;                      //!< Unique Id of the allocated buffer for the
                                                //!< internal use only
+  Rect src_crop = {};                          //!< Crop rectangle of src buffer, if client doesn't
+                                               //!< specify, its default to {0, 0, width, height}
 };
 
 }  // namespace sdm

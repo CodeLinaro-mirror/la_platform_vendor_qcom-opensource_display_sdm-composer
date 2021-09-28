@@ -36,6 +36,7 @@
 #include "sdm_comp_debugger.h"
 #include "formats.h"
 #include "utils/fence.h"
+#include "utils/rect.h"
 
 
 #define __CLASS__ "SDMCompDisplayBuiltIn"
@@ -343,6 +344,8 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
   }
   Layer *layer = layer_set_.at(0);
   BufferFormat buf_format = GetSDMCompFormat(layer->input_buffer.format);
+  LayerRect src_crop = LayerRect(buf_handle->src_crop.left, buf_handle->src_crop.top,
+                                 buf_handle->src_crop.right, buf_handle->src_crop.bottom);
 
   layer->input_buffer.width = buf_handle->width;
   layer->input_buffer.height = buf_handle->height;
@@ -356,9 +359,13 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
   layer->frame_rate = variable_info_.fps;
   layer->blending = kBlendingPremultiplied;
   layer->src_rect = LayerRect(0, 0, buf_handle->width, buf_handle->height);
+  if (IsValid(src_crop) && Contains(layer->src_rect, src_crop)) {
+    layer->src_rect = src_crop;
+  }
 
-  DLOGI("WxHxF %dx%dx%d", layer->input_buffer.width, layer->input_buffer.height,
-        layer->input_buffer.format);
+  DLOGI("WxHxF %dx%dx%d Crop[LTRB] [%.0f %.0f %.0f %.0f]", layer->input_buffer.width,
+        layer->input_buffer.height, layer->input_buffer.format, layer->src_rect.left,
+        layer->src_rect.top, layer->src_rect.right, layer->src_rect.bottom);
 
   for (auto &it : layer_set_)
     layer_stack_.layers.push_back(it);
