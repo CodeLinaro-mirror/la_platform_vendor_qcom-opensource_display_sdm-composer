@@ -359,8 +359,8 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
   layer->frame_rate = variable_info_.fps;
   layer->blending = kBlendingPremultiplied;
   layer->src_rect = LayerRect(0, 0, buf_handle->width, buf_handle->height);
-  if (IsValid(src_crop) && Contains(layer->src_rect, src_crop)) {
-    layer->src_rect = src_crop;
+  if (IsValid(src_crop)) {
+    layer->src_rect = Intersection(src_crop, layer->src_rect);
   }
 
   DLOGI("WxHxF %dx%dx%d Crop[LTRB] [%.0f %.0f %.0f %.0f]", layer->input_buffer.width,
