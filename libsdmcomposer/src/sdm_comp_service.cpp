@@ -260,6 +260,22 @@ void SDMCompService::HandleSetProperties(const struct qrtr_packet &qrtr_pkt) {
   SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
 
+void SDMCompService::HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt) {
+  Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
+  Response rsp = {};
+  rsp.id = cmd->id;
+
+  CmdSetPanelBootParam *cmd_set_panel_boot_param =
+    reinterpret_cast<CmdSetPanelBootParam *>(&cmd->cmd_set_panel_boot_param);
+
+  if (callback_) {
+    int err = callback_->OnEvent(kEventSetPanelBootParams,
+                                 cmd_set_panel_boot_param->panel_boot_string);
+    rsp.status = err;
+  }
+  SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+}
+
 void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
   Response rsp = {};
   rsp.status = -EINVAL;
@@ -300,6 +316,9 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
     } break;
     case kCmdSetProperties: {
       HandleSetProperties(qrtr_pkt);
+    } break;
+    case kCmdSetPanelBootParams: {
+      HandleSetPanelBootParams(qrtr_pkt);
     } break;
     default:
       if (sdm_comp_service_extn_intf_) {

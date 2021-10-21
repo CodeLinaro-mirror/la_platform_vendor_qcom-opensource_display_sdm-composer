@@ -27,4 +27,4 @@ libsdmcomposer_la_CPPFLAGS = $(AM_CPPFLAGS) -DLOG_TAG=\"SDM\"
 libsdmcomposer_la_LIBADD := ../../libformatutils/src/libformatutils.la \
                             ../../liballocator/src/liballocator.la
 libsdmcomposer_la_LDFLAGS := -shared -avoid-version -lsdmcore -lsdmutils -lsdmdal -ldl \
-                             -lpthread -lmemutils
+                             -lpthread -lmemutils  -lsystemdq
