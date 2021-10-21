@@ -41,6 +41,7 @@ enum SDMCompServiceEvents {
   kEventSetDisplayConfig,
   kEventImportDemuraBuffers,
   kEventSetProperties,
+  kEventSetPanelBootParams,
   kEventMax,
 };
 

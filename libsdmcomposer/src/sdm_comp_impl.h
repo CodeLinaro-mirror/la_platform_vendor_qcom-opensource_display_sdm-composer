@@ -29,6 +29,7 @@
 #include <errno.h>
 
 #include <mutex>
+#include <condition_variable>
 
 #include "sdm_comp_buffer_sync_handler.h"
 #include "sdm_comp_buffer_allocator.h"
@@ -95,6 +96,10 @@ class SDMCompImpl : public SDMCompInterface, SDMCompServiceCbIntf {
   SDMCompServiceDispConfigs disp_configs_[kSDMCompDisplayTypeMax] = {};
   std::map<SDMCompServiceEvents, SDMCompDisplayType> pending_events_ = {};
   std::shared_ptr<SDMCompIPCImpl> ipc_intf_;
+  std::mutex mutex_panel_boot_params_;
+  std::condition_variable cv_panel_boot_params_;
+  std::string panel_boot_params_ = {};
+  bool panel_boot_params_updated_ = false;
 };
 
 }  // namespace sdm

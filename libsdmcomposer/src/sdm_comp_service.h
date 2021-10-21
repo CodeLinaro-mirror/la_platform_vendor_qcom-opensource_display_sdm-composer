@@ -61,6 +61,7 @@ class SDMCompService : public SDMCompServiceIntf {
   void HandleSetBacklight(const struct qrtr_packet &qrtr_pkt);
   void HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt);
   void HandleSetProperties(const struct qrtr_packet &qrtr_pkt);
+  void HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt);
   SDMCompDisplayType GetSDMCompDisplayType(DisplayType disp_type);
 
   int (*QrtrOpen)(int rport);
