@@ -1,9 +1,9 @@
-SDM_PATH := ${WORKSPACE}/hardware/qcom/display/sdm
+SDM_PATH := ${WORKSPACE}/display/hardware/qcom/display/sdm
 
 AM_CPPFLAGS += "-I$(SDM_PATH)/include"
 AM_CPPFLAGS += "-I$(SDM_PATH)/../libdebug"
 AM_CPPFLAGS += "-I$(SDM_PATH)/../include"
-AM_CPPFLAGS += "-I${WORKSPACE}/vendor/qcom/opensource/commonsys-intf/display/include/"
+AM_CPPFLAGS += "-I${WORKSPACE}/display/vendor/qcom/opensource/commonsys-intf/display/include/"
 
 c_sources = alloc_interface.cpp \
             ion_alloc_impl.cpp \

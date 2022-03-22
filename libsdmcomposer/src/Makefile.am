@@ -1,10 +1,10 @@
-SDM_PATH := ${WORKSPACE}/hardware/qcom/display/sdm
-SDM_COMP_PATH := ${WORKSPACE}/vendor/qcom/opensource/display/sdm-composer
+SDM_PATH := ${WORKSPACE}/display/hardware/qcom/display/sdm
+SDM_COMP_PATH := ${WORKSPACE}/display/vendor/qcom/opensource/display/sdm-composer
 
 AM_CPPFLAGS += "-I$(SDM_PATH)/include"
 AM_CPPFLAGS += "-I$(SDM_PATH)/../libdebug"
 AM_CPPFLAGS += "-I$(SDM_PATH)/../include"
-AM_CPPFLAGS += "-I${WORKSPACE}/vendor/qcom/opensource/commonsys-intf/display/include/"
+AM_CPPFLAGS += "-I${WORKSPACE}/display/vendor/qcom/opensource/commonsys-intf/display/include/"
 AM_CPPFLAGS += "-I$(SDM_PATH)/../libmemutils"
 AM_CPPFLAGS += "-I${PKG_CONFIG_SYSROOT_DIR}/${includedir}/qmi-framework"
 AM_CPPFLAGS += "-I$(SDM_COMP_PATH)/include"
