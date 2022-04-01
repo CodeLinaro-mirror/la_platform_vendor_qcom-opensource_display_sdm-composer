@@ -102,11 +102,11 @@ class SDMCompService {
   static void QRTREventHandler();
   static void CommandHandler(const struct qrtr_packet &qrtr_pkt);
   static void SendResponse(int node, int port, const Response &rsp);
-  static void HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt);
-  static void HandleSetBacklight(const struct qrtr_packet &qrtr_pkt);
-  static void HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt);
-  static void HandleSetProperties(const struct qrtr_packet &qrtr_pkt);
-  static void HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt);
+  static void HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt, Response *rsp);
+  static void HandleSetBacklight(const struct qrtr_packet &qrtr_pkt, Response *rsp);
+  static void HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt, Response *rsp);
+  static void HandleSetProperties(const struct qrtr_packet &qrtr_pkt, Response *rsp);
+  static void HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt, Response *rsp);
   static SDMCompDisplayType GetSDMCompDisplayType(DisplayType disp_type);
   static void HandlePendingCommands();
   static bool IsRegisteredClientValid();

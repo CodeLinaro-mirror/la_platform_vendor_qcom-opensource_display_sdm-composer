@@ -234,10 +234,9 @@ void SDMCompService::SendResponse(int node, int port, const Response &rsp) {
   DLOGI("Sent response for the command id %d size %d", rsp.id, sizeof(rsp));
 }
 
-void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt) {
+void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pkt, Response *rsp) {
   Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
-  Response rsp = {};
-  rsp.id = cmd->id;
+  rsp->id = cmd->id;
   DemuraMemInfo *demura_mem_info = &cmd->cmd_export_demura_buf.demura_mem_info;
   SDMCompServiceDemuraBufInfo demura_buf_info = {};
 
@@ -245,8 +244,7 @@ void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pk
     int error = mem_buf_->Import(demura_mem_info->calib_mem_hdl, &demura_buf_info.calib_buf_fd);
     if (error != 0) {
       DLOGW("Import failed with %d", error);
-      rsp.status = error;
-      SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+      rsp->status = error;
       return;
     }
     demura_buf_info.calib_buf_size = demura_mem_info->calib_mem_size;
@@ -263,7 +261,8 @@ void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pk
     if (error != 0) {
       DLOGW("Import failed with %d", error);
       close(demura_buf_info.calib_buf_fd);
-      rsp.status = error;
+      rsp->status = error;
+      return;
     }
     demura_buf_info.hfc_buf_size = demura_mem_info->hfc_mem_size;
     demura_buf_info.panel_id = demura_mem_info->panel_id;
@@ -276,48 +275,41 @@ void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pk
       int err = callback->OnEvent(kEventImportDemuraBuffers, &demura_buf_info);
       DLOGI("ImportDemuraBuffers on panel_id %lu is %s", demura_mem_info->panel_id,
             err ? "failed" : "successful");
-      rsp.status = err;
+      rsp->status = err;
     }
   }
-
-  SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
 
-void SDMCompService::HandleSetBacklight(const struct qrtr_packet &qrtr_pkt) {
+void SDMCompService::HandleSetBacklight(const struct qrtr_packet &qrtr_pkt, Response *rsp) {
   Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
-  Response rsp = {};
-  rsp.id = cmd->id;
+  rsp->id = cmd->id;
   CmdSetBacklight *cmd_backlight = reinterpret_cast<CmdSetBacklight*>(&cmd->cmd_set_backlight);
   SDMCompDisplayType sdm_comp_disp_type = GetSDMCompDisplayType(cmd_backlight->disp_type);
 
   if (sdm_comp_disp_type == kSDMCompDisplayTypeMax) {
     DLOGE("Invalid display_type %d", sdm_comp_disp_type);
-    rsp.status = -EINVAL;
-    SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+    rsp->status = -EINVAL;
     return;
   }
   for (auto callback : callbacks_) {
     if (callback) {
       int err = callback->OnEvent(kEventSetPanelBrightness, sdm_comp_disp_type,
                                   cmd_backlight->brightness);
-      rsp.status = err;
+      rsp->status = err;
     }
   }
-  SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
 
-void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt) {
+void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt, Response *rsp) {
   Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
-  Response rsp = {};
-  rsp.id = cmd->id;
+  rsp->id = cmd->id;
   CmdSetDisplayConfigs *cmd_disp_configs =
     reinterpret_cast<CmdSetDisplayConfigs*>(&cmd->cmd_set_disp_configs);
   SDMCompDisplayType sdm_comp_disp_type = GetSDMCompDisplayType(cmd_disp_configs->disp_type);
 
   if (sdm_comp_disp_type == kSDMCompDisplayTypeMax) {
     DLOGE("Invalid display_type %d", sdm_comp_disp_type);
-    rsp.status = -EINVAL;
-    SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+    rsp->status = -EINVAL;
     return;
   }
 
@@ -329,16 +321,14 @@ void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt)
       disp_configs.fps = cmd_disp_configs->fps;
       disp_configs.smart_panel = cmd_disp_configs->smart_panel;
       int err = callback->OnEvent(kEventSetDisplayConfig, sdm_comp_disp_type, &disp_configs);
-      rsp.status = err;
+      rsp->status = err;
     }
   }
-  SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
 
-void SDMCompService::HandleSetProperties(const struct qrtr_packet &qrtr_pkt) {
+void SDMCompService::HandleSetProperties(const struct qrtr_packet &qrtr_pkt, Response *rsp) {
   Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
-  Response rsp = {};
-  rsp.id = cmd->id;
+  rsp->id = cmd->id;
 
   CmdSetProperties *cmd_set_props =
     reinterpret_cast<CmdSetProperties *>(&cmd->cmd_set_properties);
@@ -351,26 +341,24 @@ void SDMCompService::HandleSetProperties(const struct qrtr_packet &qrtr_pkt) {
     DLOGI("prop idx : %d, name: %s, value :%s", i, cmd_set_props->props.property_list[i].prop_name,
       cmd_set_props->props.property_list[i].value);
   }
-
-  SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
 
-void SDMCompService::HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt) {
+void SDMCompService::HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt, Response *rsp) {
   Command *cmd = reinterpret_cast<Command *>(qrtr_pkt.data);
-  Response rsp = {};
-  rsp.id = cmd->id;
+  rsp->id = cmd->id;
 
   CmdSetPanelBootParam *cmd_set_panel_boot_param =
     reinterpret_cast<CmdSetPanelBootParam *>(&cmd->cmd_set_panel_boot_param);
+
+  DLOGI("panel_boot_param_string %s", cmd_set_panel_boot_param->panel_boot_string);
 
   for (auto callback : callbacks_) {
     if (callback) {
       int err = callback->OnEvent(kEventSetPanelBootParams,
                                   cmd_set_panel_boot_param->panel_boot_string);
-      rsp.status = err;
+      rsp->status = err;
     }
   }
-  SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
 }
 
 void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
@@ -398,7 +386,14 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
     }
     if (!IsRegisteredClientValid()) {
       std::lock_guard<std::mutex> lock(pending_cmd_lock_);
-      pending_commands_.emplace(std::make_pair(cmd->id, qrtr_pkt));
+      struct qrtr_packet qrtr_pkt_temp = qrtr_pkt;
+      qrtr_pkt_temp.data = (void *)new uint8_t[sizeof(Command)];
+      qrtr_pkt_temp.data_len = sizeof(Command);
+      memcpy(qrtr_pkt_temp.data, qrtr_pkt.data, qrtr_pkt_temp.data_len);
+      pending_commands_.emplace(std::make_pair(cmd->id, qrtr_pkt_temp));
+      DLOGI("Registered client invalid handle the command %d later", cmd->id);
+      SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
+      return;
     }
   }
 
@@ -407,25 +402,29 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
 
   switch (cmd->id) {
     case kCmdExportDemuraBuffers:
-      HandleImportDemuraBuffers(qrtr_pkt);
+      HandleImportDemuraBuffers(qrtr_pkt, &rsp);
       break;
     case kCmdSetBacklight: {
-      HandleSetBacklight(qrtr_pkt);
+      HandleSetBacklight(qrtr_pkt, &rsp);
     } break;
     case kCmdSetDisplayConfig: {
-      HandleSetDisplayConfigs(qrtr_pkt);
+      HandleSetDisplayConfigs(qrtr_pkt, &rsp);
     } break;
     case kCmdSetProperties: {
-      HandleSetProperties(qrtr_pkt);
+      HandleSetProperties(qrtr_pkt, &rsp);
     } break;
     case kCmdSetPanelBootParams: {
-      HandleSetPanelBootParams(qrtr_pkt);
+      HandleSetPanelBootParams(qrtr_pkt, &rsp);
     } break;
     default:
       if (sdm_comp_service_extn_intf_) {
         sdm_comp_service_extn_intf_->CommandHandler(qrtr_pkt);
       }
       break;
+  }
+
+  if (cmd->id < kCmdMax) {
+    SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
   }
 }
 
@@ -511,25 +510,31 @@ SDMCompDisplayType SDMCompService::GetSDMCompDisplayType(DisplayType disp_type) 
 
 void SDMCompService::HandlePendingCommands() {
   std::lock_guard<std::mutex> lock(pending_cmd_lock_);
+  Response rsp = {};
   for (auto cmd : pending_commands_) {
-    switch (cmd.first) {
+    int cmd_id = cmd.first;
+    const struct qrtr_packet &qrtr_pkt = cmd.second;
+    switch (cmd_id) {
       case kCmdExportDemuraBuffers:
-        HandleImportDemuraBuffers(cmd.second);
+        HandleImportDemuraBuffers(qrtr_pkt, &rsp);
         break;
       case kCmdSetBacklight: {
-        HandleSetBacklight(cmd.second);
+        HandleSetBacklight(qrtr_pkt, &rsp);
       } break;
       case kCmdSetDisplayConfig: {
-        HandleSetDisplayConfigs(cmd.second);
+        HandleSetDisplayConfigs(qrtr_pkt, &rsp);
       } break;
       case kCmdSetProperties: {
-        HandleSetProperties(cmd.second);
+        HandleSetProperties(qrtr_pkt, &rsp);
       } break;
       case kCmdSetPanelBootParams: {
-        HandleSetPanelBootParams(cmd.second);
+        HandleSetPanelBootParams(qrtr_pkt, &rsp);
       } break;
       default:
         break;
+    }
+    if (qrtr_pkt.data) {
+      delete [] qrtr_pkt.data;
     }
   }
   pending_commands_.clear();
