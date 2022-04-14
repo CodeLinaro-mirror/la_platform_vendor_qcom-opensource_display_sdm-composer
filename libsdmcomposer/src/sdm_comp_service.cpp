@@ -66,15 +66,21 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <string.h>
 #include <sys/poll.h>
+#include <sys/mman.h>
+#include <systemdq/sd-bus.h>
 
 #include <mutex>
 #include <algorithm>
 #include <cstring>
+#include <string>
 
 #include "sdm_comp_service.h"
 #include "sdm_comp_debugger.h"
 
 #define __CLASS__ "SDMCompService"
+
+#define DISPLAY_SERVICE_FILE "display@.service"
+#define SYSTEMD_ESCAPE_BIN "/bin/systemd-escape"
 
 namespace sdm {
 
@@ -97,6 +103,88 @@ QrtrBye SDMCompService::qrtr_bye_ = nullptr;
 QrtrDecode SDMCompService::qrtr_decode_ = nullptr;
 std::mutex SDMCompService::pending_cmd_lock_;
 std::map<int, struct qrtr_packet> SDMCompService::pending_commands_ = {};
+
+static bool IsModuleLoaded() {
+  FILE *fp = popen("cat /proc/modules | grep msm_drm", "r");
+  if (fp == NULL) {
+    return false;
+  }
+  char buf[16];
+  if (fread (buf, 1, sizeof (buf), fp) > 0) {
+    pclose(fp);
+    return true;
+  }
+  pclose(fp);
+  return false;
+}
+
+static int LoadModule(const std::string &service_file_path, const std::string &argument) {
+  if (IsModuleLoaded()) {
+    return 0;
+  }
+  sd_bus_error error = SD_BUS_ERROR_NULL;
+  sd_bus_message *msg = NULL;
+  sd_bus *bus = NULL;
+  char systemd_escape_cmd[256] = {};
+  char modified_arg[256] = {};
+  std::string mod_service_file_path(service_file_path);
+  if (!argument.empty()) {
+    FILE *cmd_file;
+    snprintf(systemd_escape_cmd, sizeof(systemd_escape_cmd), "%s '%s' 2>&1",
+             SYSTEMD_ESCAPE_BIN, argument.c_str());
+    DLOGI("systemd_escape_cmd %s", systemd_escape_cmd);
+    cmd_file = popen(systemd_escape_cmd, "r");
+    if (!cmd_file) {
+      DLOGI("cmd file is NULL");
+      return -EINVAL;
+    }
+    if (fgets(modified_arg, sizeof(modified_arg), cmd_file) == NULL) {
+      DLOGE("fgets returned null");
+      return -EINVAL;
+    }
+    DLOGI("modified_arg %s", modified_arg);
+    pclose(cmd_file);
+
+    std::size_t pos = mod_service_file_path.find_first_of('@');
+    if (pos == std::string::npos) {
+      DLOGE("Invalid service file path!!");
+      return -EINVAL;
+    }
+    mod_service_file_path.insert(pos + 1, modified_arg);
+
+    pos = mod_service_file_path.find_first_of('\n');
+    if (pos != std::string::npos) {
+      mod_service_file_path.erase(pos, 1);
+    }
+  }
+
+  DLOGI("service file path %s", mod_service_file_path.c_str());
+
+  int err = sd_bus_open_system(&bus);
+  if (err < 0) {
+    DLOGE("Failed to connect to system bus err %d %s", err, strerror(errno));
+    return err;
+  }
+  err = sd_bus_call_method(bus,
+                           "org.freedesktop.systemd1",
+                           "/org/freedesktop/systemd1",
+                           "org.freedesktop.systemd1.Manager",
+                           "StartUnit",
+                           &error,
+                           &msg,
+                           "ss",
+                           mod_service_file_path.c_str(),
+                           "replace");
+  if (err < 0) {
+    DLOGE("sd_bus_call_method failed with err %d %s", err, strerror(errno));
+  }
+  sd_bus_error_free(&error);
+  sd_bus_message_unref(msg);
+  sd_bus_unref(bus);
+
+  DLOGI("Loading kernel module is %s", (err < 0) ? "failed" : "successful");
+  return ((err < 0) ? err : 0);
+}
 
 int SDMCompService::RegisterCallback(SDMCompServiceCbIntf *callback) {
   std::lock_guard<std::mutex> lock(qrtr_lock_);
@@ -352,12 +440,11 @@ void SDMCompService::HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt
 
   DLOGI("panel_boot_param_string %s", cmd_set_panel_boot_param->panel_boot_string);
 
-  for (auto callback : callbacks_) {
-    if (callback) {
-      int err = callback->OnEvent(kEventSetPanelBootParams,
-                                  cmd_set_panel_boot_param->panel_boot_string);
-      rsp->status = err;
-    }
+  int ret = LoadModule(DISPLAY_SERVICE_FILE, cmd_set_panel_boot_param->panel_boot_string);
+  if (ret != 0) {
+    DLOGE("Failed loading kernel module %d", ret);
+    rsp->status = -EINVAL;
+    return;
   }
 }
 
@@ -384,7 +471,10 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
       SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
       return;
     }
-    if (!IsRegisteredClientValid()) {
+
+    // Command kCmdSetPanelBootParams is handled in sdm comp service. So valid client
+    // is not needed to handle it.
+    if ((cmd->id != kCmdSetPanelBootParams) && !IsRegisteredClientValid()) {
       std::lock_guard<std::mutex> lock(pending_cmd_lock_);
       struct qrtr_packet qrtr_pkt_temp = qrtr_pkt;
       qrtr_pkt_temp.data = (void *)new uint8_t[sizeof(Command)];

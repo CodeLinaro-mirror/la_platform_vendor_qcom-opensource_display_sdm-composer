@@ -75,7 +75,6 @@ enum SDMCompServiceEvents {
   kEventSetPanelBrightness,
   kEventSetDisplayConfig,
   kEventImportDemuraBuffers,
-  kEventSetPanelBootParams,
   kEventMax,
 };
 
