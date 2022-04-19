@@ -17,7 +17,8 @@ c_sources = sdm_comp_buffer_allocator.cpp \
             sdm_comp_impl.cpp \
             sdm_comp_interface.cpp \
             sdm_comp_service.cpp \
-            sdm_comp_service_intf.cpp
+            sdm_comp_service_intf.cpp \
+            sdm_comp_service_client.cpp
 
 lib_LTLIBRARIES = libsdmcomposer.la
 libsdmcomposer_la_CC = @CC@
@@ -27,4 +28,4 @@ libsdmcomposer_la_CPPFLAGS = $(AM_CPPFLAGS) -DLOG_TAG=\"SDM\"
 libsdmcomposer_la_LIBADD := ../../libformatutils/src/libformatutils.la \
                             ../../liballocator/src/liballocator.la
 libsdmcomposer_la_LDFLAGS := -shared -avoid-version -lsdmcore -lsdmutils -lsdmdal -ldl \
-                             -lpthread -lmemutils
+                             -lpthread -lmemutils  -lsystemdq
