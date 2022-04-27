@@ -482,6 +482,7 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
       memcpy(qrtr_pkt_temp.data, qrtr_pkt.data, qrtr_pkt_temp.data_len);
       pending_commands_.emplace(std::make_pair(cmd->id, qrtr_pkt_temp));
       DLOGI("Registered client invalid handle the command %d later", cmd->id);
+      rsp.status = 0;
       SendResponse(qrtr_pkt.node, qrtr_pkt.port, rsp);
       return;
     }
