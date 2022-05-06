@@ -1,6 +1,9 @@
 /*
 * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 *
+* Changes from Qualcomm Innovation Center are provided under the following license:
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
 * met:
@@ -32,6 +35,9 @@
 
 #include <core/sdm_types.h>
 #include <debug_handler.h>
+
+#include "property_parser_interface.h"
+
 #include <bitset>
 #include <map>
 
@@ -75,6 +81,7 @@ class SDMCompDebugHandler : public DebugHandler {
   std::bitset<32> log_mask_;
   int32_t verbose_level_;
   std::map<std::string, std::string> properties_map_;
+  PropertyParserInterface *prop_parser_intf_ = nullptr;
 };
 
 }  // namespace sdm

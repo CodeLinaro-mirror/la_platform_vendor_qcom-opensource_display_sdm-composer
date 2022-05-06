@@ -1,6 +1,9 @@
 /*
 * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
 *
+* Changes from Qualcomm Innovation Center are provided under the following license:
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
 * met:
@@ -45,6 +48,7 @@ SDMCompDebugHandler SDMCompDebugHandler::debug_handler_;
 
 SDMCompDebugHandler::SDMCompDebugHandler() {
   DebugHandler::Set(SDMCompDebugHandler::Get());
+  PropertyParserInterface::Create(&prop_parser_intf_);
 }
 
 void SDMCompDebugHandler::DebugAll(bool enable, int verbose_level) {
@@ -268,6 +272,9 @@ int SDMCompDebugHandler::GetProperty(const char *property_name, int *value) {
   if (!property_name || !value)
     return kErrorNotSupported;
 
+  if (prop_parser_intf_) {
+    return prop_parser_intf_->GetProperty(property_name, value);
+  }
   auto it = properties_map_.find(property_name);
   if (it != properties_map_.end())
     *value = std::stoi(it->second);
@@ -280,6 +287,10 @@ int SDMCompDebugHandler::GetProperty(const char *property_name, int *value) {
 int SDMCompDebugHandler::GetProperty(const char *property_name, char *value) {
   if (!property_name || !value)
     return kErrorNotSupported;
+
+  if (prop_parser_intf_) {
+    return prop_parser_intf_->GetProperty(property_name, value);
+  }
 
   auto it = properties_map_.find(property_name);
   if (it != properties_map_.end())
