@@ -355,10 +355,8 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
         DLOGE("Failed to Cache the demura Buffers err %d", err);
         break;
       }
-      /* TODO(user): Enable demura by passing valid core_intf_ pointer.
-         Currently its disabled */
       if (demura_buf_info->calib_buf_fd > 0)
-        std::thread(CoreInterfaceCb, nullptr).detach();
+        std::thread(CoreInterfaceCb, core_intf_).detach();
     }
   } break;
 

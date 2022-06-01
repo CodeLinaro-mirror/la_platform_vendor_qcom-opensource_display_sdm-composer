@@ -129,7 +129,7 @@ class SDMCompService {
   static int exit_thread_fd_;
   static std::thread event_thread_;
   static std::mutex pending_cmd_lock_;
-  static std::map<int, struct qrtr_packet> pending_commands_;
+  static std::multimap<int, struct qrtr_packet> pending_commands_;
 };
 
 }  // namespace sdm

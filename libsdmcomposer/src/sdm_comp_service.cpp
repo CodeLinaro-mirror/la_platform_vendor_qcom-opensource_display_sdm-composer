@@ -102,7 +102,7 @@ QrtrPublish SDMCompService::qrtr_publish_ = nullptr;
 QrtrBye SDMCompService::qrtr_bye_ = nullptr;
 QrtrDecode SDMCompService::qrtr_decode_ = nullptr;
 std::mutex SDMCompService::pending_cmd_lock_;
-std::map<int, struct qrtr_packet> SDMCompService::pending_commands_ = {};
+std::multimap<int, struct qrtr_packet> SDMCompService::pending_commands_ = {};
 
 static bool IsModuleLoaded() {
   FILE *fp = popen("cat /proc/modules | grep msm_drm", "r");
@@ -192,7 +192,7 @@ int SDMCompService::RegisterCallback(SDMCompServiceCbIntf *callback) {
   if (qrtr_fd_ > 0) {
     callbacks_.push_back(callback);
     if (callback) {
-      HandlePendingCommands();
+      std::thread(HandlePendingCommands).detach();
     }
     return 0;
   }
@@ -474,7 +474,8 @@ void SDMCompService::CommandHandler(const struct qrtr_packet &qrtr_pkt) {
 
     // Command kCmdSetPanelBootParams is handled in sdm comp service. So valid client
     // is not needed to handle it.
-    if ((cmd->id != kCmdSetPanelBootParams) && !IsRegisteredClientValid()) {
+    if ((cmd->id != kCmdSetPanelBootParams) && (cmd->id != kCmdSetProperties) &&
+        !IsRegisteredClientValid()) {
       std::lock_guard<std::mutex> lock(pending_cmd_lock_);
       struct qrtr_packet qrtr_pkt_temp = qrtr_pkt;
       qrtr_pkt_temp.data = (void *)new uint8_t[sizeof(Command)];
