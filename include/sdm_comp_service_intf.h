@@ -86,13 +86,9 @@ struct SDMCompServiceDispConfigs {
 };
 
 struct SDMCompServiceDemuraBufInfo {
-  int calib_buf_fd = -1;
   int hfc_buf_fd = -1;
-  uint32_t calib_buf_size = 0;
   uint32_t hfc_buf_size = 0;
   uint64_t panel_id = 0;
-  uint32_t calib_payload_size = 0;
-  char file_name[128];
 };
 
 class SDMCompServiceCbIntf {

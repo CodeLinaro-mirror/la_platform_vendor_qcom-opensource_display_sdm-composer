@@ -328,27 +328,20 @@ void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pk
   DemuraMemInfo *demura_mem_info = &cmd->cmd_export_demura_buf.demura_mem_info;
   SDMCompServiceDemuraBufInfo demura_buf_info = {};
 
-  if (demura_mem_info->calib_mem_hdl != -1) {
-    int error = mem_buf_->Import(demura_mem_info->calib_mem_hdl, &demura_buf_info.calib_buf_fd);
-    if (error != 0) {
-      DLOGW("Import failed with %d", error);
-      rsp->status = error;
-      return;
-    }
-    demura_buf_info.calib_buf_size = demura_mem_info->calib_mem_size;
-    demura_buf_info.calib_payload_size = demura_mem_info->calib_payload_size;
-    demura_buf_info.panel_id = demura_mem_info->panel_id;
-    std::memcpy(demura_buf_info.file_name, demura_mem_info->file_name,
-        sizeof demura_mem_info->file_name);
-
-    DLOGI("raw fd:%d and size :%u", demura_buf_info.calib_buf_fd, demura_buf_info.calib_buf_size);
-  }
+  DLOGI("hfc mem handle :%d", demura_mem_info->hfc_mem_hdl);
 
   if (demura_mem_info->hfc_mem_hdl != -1) {
-    int error = mem_buf_->Import(demura_mem_info->hfc_mem_hdl, &demura_buf_info.hfc_buf_fd);
+    VmParams vm_params;
+    std::bitset<kVmPermissionMax> buf_perm = { 0 };
+    buf_perm.set(kVmPermissionRead);
+    buf_perm.set(kVmPermissionWrite);
+    vm_params.emplace(kVmTypeTrusted, buf_perm);
+    vm_params.emplace(kVmTypePrimary, buf_perm);
+
+    int error = mem_buf_->Import(demura_mem_info->hfc_mem_hdl, vm_params,
+                                 &demura_buf_info.hfc_buf_fd);
     if (error != 0) {
       DLOGW("Import failed with %d", error);
-      close(demura_buf_info.calib_buf_fd);
       rsp->status = error;
       return;
     }

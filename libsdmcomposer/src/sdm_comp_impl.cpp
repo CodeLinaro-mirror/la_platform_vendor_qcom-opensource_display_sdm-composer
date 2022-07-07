@@ -78,12 +78,6 @@ uint32_t SDMCompImpl::ref_count_ = 0;
 uint32_t SDMCompImpl::disp_ref_count_[kSDMCompDisplayTypeMax] = { 0 };
 recursive_mutex recursive_mutex_;
 
-void SDMCompImpl::CoreInterfaceCb(CoreInterface *obj)
-{
-  if (obj)
-    obj->ReserveDemuraResources();
-}
-
 SDMCompImpl *SDMCompImpl::GetInstance() {
   if (!sdm_comp_impl_) {
     sdm_comp_impl_= new SDMCompImpl();
@@ -342,21 +336,13 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
         DLOGE("Failed to create payload for BufferInfo, error = %d", err);
         break;
       }
-      buffer->calib_buf_fd = demura_buf_info->calib_buf_fd;
       buffer->hfc_buf_fd = demura_buf_info->hfc_buf_fd;
-      buffer->calib_buf_size = demura_buf_info->calib_buf_size;
       buffer->hfc_buf_size = demura_buf_info->hfc_buf_size;
-      buffer->calib_payload_size = demura_buf_info->calib_payload_size;
       buffer->panel_id = demura_buf_info->panel_id;
-      buffer->calib_payload_size = demura_buf_info->calib_payload_size;
-      std::memcpy(buffer->file_name, demura_buf_info->file_name,
-        sizeof demura_buf_info->file_name);
       if ((err = ipc_intf_->SetParameter(kIpcParamSetDemuraBuffer, pl))) {
         DLOGE("Failed to Cache the demura Buffers err %d", err);
         break;
       }
-      if (demura_buf_info->calib_buf_fd > 0)
-        std::thread(CoreInterfaceCb, core_intf_).detach();
     }
   } break;
 
@@ -420,14 +406,12 @@ int SDMCompIPCImpl::SetParameter(IPCParams param, const GenericPayload &in) {
       DLOGE("Failed to get input payload error = %d", ret);
       return ret;
     }
-    if (buf_info->calib_buf_fd > 0) {
-      calib_buf_info_.emplace(std::make_pair(buf_info->panel_id, *buf_info));
-    } else if (buf_info->hfc_buf_fd > 0) {
+    if (buf_info->hfc_buf_fd > 0) {
       hfc_buf_info_.hfc_buf_fd = buf_info->hfc_buf_fd;
       hfc_buf_info_.hfc_buf_size = buf_info->hfc_buf_size;
       hfc_buf_info_.panel_id = buf_info->panel_id;
     } else {
-      DLOGW("Failed to import both Calibration and HFC buffers");
+      DLOGW("Failed to import HFC buffer");
     }
   } break;
   default:
@@ -471,21 +455,8 @@ int SDMCompIPCImpl::ProcessOps(IPCOps op, const GenericPayload &in, GenericPaylo
       buf_out_params->buffers.push_back(buf);
       DLOGI("ProcessOps: hfc fd:%d and size :%u", hfc_buf_info_.hfc_buf_fd,
         hfc_buf_info_.hfc_buf_size);
-    } else if (buf_in_params->req_buf_type == kIpcBufferTypeDemuraCalib) {
-      for (auto &it : calib_buf_info_) {
-        IPCBufferInfo buf;
-        buf.panel_id = it.first;
-        buf.fd = it.second.calib_buf_fd;
-        buf.size = it.second.calib_buf_size;
-        buf.payload_sz = it.second.calib_payload_size;
-        std::memcpy(buf.file_name, it.second.file_name, sizeof  it.second.file_name);
-        buf_out_params->buffers.push_back(buf);
-        std::snprintf(buf.file_name, sizeof buf.file_name, "%s", it.second.file_name);
-        DLOGI("ProcessOps: raw fd:%d and size :%u", it.second.calib_buf_fd,
-          it.second.calib_buf_size);
-      }
     } else {
-      DLOGE("Invalid buffer type\n");
+      DLOGE("Invalid buffer type : %d", buf_in_params->req_buf_type);
     }
   } break;
 
@@ -496,7 +467,6 @@ int SDMCompIPCImpl::ProcessOps(IPCOps op, const GenericPayload &in, GenericPaylo
 }
 
 int SDMCompIPCImpl::Deinit() {
-  calib_buf_info_ = {};
   hfc_buf_info_ = {};
   return 0;
 }

@@ -87,14 +87,12 @@ public:
   int ProcessOps(IPCOps op, const GenericPayload &in, GenericPayload *out);
 
 private:
-  std::map<uint64_t, SDMCompServiceDemuraBufInfo > calib_buf_info_ {};
   SDMCompServiceDemuraBufInfo hfc_buf_info_ {};
 };
 
 class SDMCompImpl : public SDMCompInterface, SDMCompServiceCbIntf {
  public:
   static SDMCompImpl *GetInstance();
-  static void CoreInterfaceCb(CoreInterface *core_intf);
   virtual ~SDMCompImpl() { }
 
   int Init();
