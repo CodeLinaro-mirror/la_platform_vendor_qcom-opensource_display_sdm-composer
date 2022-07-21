@@ -452,6 +452,7 @@ int SDMCompIPCImpl::ProcessOps(IPCOps op, const GenericPayload &in, GenericPaylo
       buf.fd = hfc_buf_info_.hfc_buf_fd;
       buf.size = hfc_buf_info_.hfc_buf_size;
       buf.panel_id = hfc_buf_info_.panel_id;
+      buf.mem_handle = -1;
       buf_out_params->buffers.push_back(buf);
       DLOGI("ProcessOps: hfc fd:%d and size :%u", hfc_buf_info_.hfc_buf_fd,
         hfc_buf_info_.hfc_buf_size);
