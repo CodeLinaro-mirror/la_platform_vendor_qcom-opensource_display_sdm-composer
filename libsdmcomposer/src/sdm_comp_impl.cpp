@@ -22,7 +22,45 @@
 * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+Changes from Qualcomm Innovation Center are provided under the following license:
+Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted (subject to the limitations in the
+disclaimer below) provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#include <string.h>
+
 #include <thread>
+
 #include "sdm_comp_impl.h"
 #include "core/sdm_types.h"
 #include "debug_handler.h"
@@ -39,12 +77,6 @@ SDMCompDisplayBuiltIn *SDMCompImpl::display_builtin_[kSDMCompDisplayTypeMax] = {
 uint32_t SDMCompImpl::ref_count_ = 0;
 uint32_t SDMCompImpl::disp_ref_count_[kSDMCompDisplayTypeMax] = { 0 };
 recursive_mutex recursive_mutex_;
-
-void SDMCompImpl::CoreInterfaceCb(CoreInterface *obj)
-{
-  if (obj)
-    obj->ReserveDemuraResources();
-}
 
 SDMCompImpl *SDMCompImpl::GetInstance() {
   if (!sdm_comp_impl_) {
@@ -93,9 +125,11 @@ int SDMCompImpl::Deinit() {
         DLOGE("Display core de-initialization failed. Error = %d", error);
         return -EINVAL;
       }
+      if (ipc_intf_) {
+        ipc_intf_->Deinit();
+      }
       delete sdm_comp_impl_;
       sdm_comp_impl_ = nullptr;
-      ipc_intf_->Deinit();
     }
   }
   return 0;
@@ -255,12 +289,12 @@ int SDMCompImpl::SetMinPanelBrightness(Handle disp_hnd, float min_brightness_lev
 }
 
 int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
-  lock_guard<recursive_mutex> obj(recursive_mutex_);
   int err = 0;
   va_list arguments;
   va_start(arguments, event);
   switch (event) {
   case kEventSetPanelBrightness: {
+    lock_guard<recursive_mutex> obj(recursive_mutex_);
     SDMCompDisplayType disp_type = (SDMCompDisplayType)(va_arg(arguments, int));
     float panel_brightness = FLOAT(va_arg(arguments, double));
     if (display_builtin_[disp_type]) {
@@ -275,6 +309,7 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
   } break;
 
   case kEventSetDisplayConfig: {
+    lock_guard<recursive_mutex> obj(recursive_mutex_);
     SDMCompDisplayType disp_type = (SDMCompDisplayType)(va_arg(arguments, int));
     SDMCompServiceDispConfigs *disp_configs =
         reinterpret_cast<SDMCompServiceDispConfigs*>(va_arg(arguments, Handle));
@@ -291,37 +326,26 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
   } break;
 
   case kEventImportDemuraBuffers: {
+    lock_guard<recursive_mutex> obj(recursive_mutex_);
     SDMCompServiceDemuraBufInfo *demura_buf_info =
         reinterpret_cast<SDMCompServiceDemuraBufInfo*>(va_arg(arguments, Handle));
     if (demura_buf_info && ipc_intf_) {
       GenericPayload pl;
-      int ret = 0;
       SDMCompServiceDemuraBufInfo* buffer = nullptr;
-      if ((ret = pl.CreatePayload<SDMCompServiceDemuraBufInfo>(buffer))) {
-        DLOGE("Failed to create payload for BufferInfo, error = %d", ret);
-        return kErrorResources;
+      if ((err = pl.CreatePayload<SDMCompServiceDemuraBufInfo>(buffer))) {
+        DLOGE("Failed to create payload for BufferInfo, error = %d", err);
+        break;
       }
-      buffer->calib_buf_fd = demura_buf_info->calib_buf_fd;
       buffer->hfc_buf_fd = demura_buf_info->hfc_buf_fd;
-      buffer->calib_buf_size = demura_buf_info->calib_buf_size;
       buffer->hfc_buf_size = demura_buf_info->hfc_buf_size;
-      buffer->calib_payload_size = demura_buf_info->calib_payload_size;
       buffer->panel_id = demura_buf_info->panel_id;
-      buffer->calib_payload_size = demura_buf_info->calib_payload_size;
-      std::memcpy(buffer->file_name, demura_buf_info->file_name,
-        sizeof demura_buf_info->file_name);
-      if ((ret = ipc_intf_->SetParameter(kIpcParamSetDemuraBuffer, pl))) {
-        DLOGE("Failed to Cache the demura Buffers");
-        return ret;
+      if ((err = ipc_intf_->SetParameter(kIpcParamSetDemuraBuffer, pl))) {
+        DLOGE("Failed to Cache the demura Buffers err %d", err);
+        break;
       }
-      /* TODO(user): Enable demura by passing valid core_intf_ pointer.
-         Currently its disabled */
-      if (demura_buf_info->calib_buf_fd > 0)
-        std::thread(CoreInterfaceCb, nullptr).detach();
     }
   } break;
-  case kEventSetProperties:
-    break;
+
   default:
     err = -EINVAL;
     break;
@@ -382,14 +406,12 @@ int SDMCompIPCImpl::SetParameter(IPCParams param, const GenericPayload &in) {
       DLOGE("Failed to get input payload error = %d", ret);
       return ret;
     }
-    if (buf_info->calib_buf_fd > 0) {
-      calib_buf_info_.emplace(std::make_pair(buf_info->panel_id, *buf_info));
-    } else if (buf_info->hfc_buf_fd > 0) {
+    if (buf_info->hfc_buf_fd > 0) {
       hfc_buf_info_.hfc_buf_fd = buf_info->hfc_buf_fd;
       hfc_buf_info_.hfc_buf_size = buf_info->hfc_buf_size;
       hfc_buf_info_.panel_id = buf_info->panel_id;
     } else {
-      DLOGW("Failed to import both Calibration and HFC buffers");
+      DLOGW("Failed to import HFC buffer");
     }
   } break;
   default:
@@ -430,24 +452,12 @@ int SDMCompIPCImpl::ProcessOps(IPCOps op, const GenericPayload &in, GenericPaylo
       buf.fd = hfc_buf_info_.hfc_buf_fd;
       buf.size = hfc_buf_info_.hfc_buf_size;
       buf.panel_id = hfc_buf_info_.panel_id;
+      buf.mem_handle = -1;
       buf_out_params->buffers.push_back(buf);
       DLOGI("ProcessOps: hfc fd:%d and size :%u", hfc_buf_info_.hfc_buf_fd,
         hfc_buf_info_.hfc_buf_size);
-    } else if (buf_in_params->req_buf_type == kIpcBufferTypeDemuraCalib) {
-      for (auto &it : calib_buf_info_) {
-        IPCBufferInfo buf;
-        buf.panel_id = it.first;
-        buf.fd = it.second.calib_buf_fd;
-        buf.size = it.second.calib_buf_size;
-        buf.payload_sz = it.second.calib_payload_size;
-        std::memcpy(buf.file_name, it.second.file_name, sizeof  it.second.file_name);
-        buf_out_params->buffers.push_back(buf);
-        std::snprintf(buf.file_name, sizeof buf.file_name, "%s", it.second.file_name);
-        DLOGI("ProcessOps: raw fd:%d and size :%u", it.second.calib_buf_fd,
-          it.second.calib_buf_size);
-      }
     } else {
-      DLOGE("Invalid buffer type\n");
+      DLOGE("Invalid buffer type : %d", buf_in_params->req_buf_type);
     }
   } break;
 
@@ -458,7 +468,7 @@ int SDMCompIPCImpl::ProcessOps(IPCOps op, const GenericPayload &in, GenericPaylo
 }
 
 int SDMCompIPCImpl::Deinit() {
-  calib_buf_info_ = {};
   hfc_buf_info_ = {};
+  return 0;
 }
 }  // namespace sdm
