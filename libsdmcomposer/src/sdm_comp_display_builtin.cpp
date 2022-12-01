@@ -137,7 +137,17 @@ int SDMCompDisplayBuiltIn::GetDisplayConfig(int config_idx,
 }
 
 int SDMCompDisplayBuiltIn::SetDisplayConfig(int config_idx) {
-  return display_intf_->SetActiveConfig(config_idx);
+  DisplayError error = display_intf_->SetActiveConfig(config_idx);
+  if (error != kErrorNone) {
+    return -EINVAL;
+  }
+  active_config_ = config_idx;
+
+  error = display_intf_->GetConfig(config_idx, &variable_info_);
+  if (error != kErrorNone) {
+    return -EINVAL;
+  }
+  return 0;
 }
 
 int SDMCompDisplayBuiltIn::GetDisplayAttributes(SDMCompDisplayAttributes *display_attributes) {
