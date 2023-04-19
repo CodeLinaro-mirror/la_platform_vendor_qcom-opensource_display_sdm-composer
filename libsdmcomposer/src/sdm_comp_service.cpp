@@ -29,7 +29,7 @@
 
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -76,6 +76,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "sdm_comp_service.h"
 #include "sdm_comp_debugger.h"
+#include "display_properties.h"
 
 #define __CLASS__ "SDMCompService"
 
@@ -327,6 +328,16 @@ void SDMCompService::HandleImportDemuraBuffers(const struct qrtr_packet &qrtr_pk
   rsp->id = cmd->id;
   DemuraMemInfo *demura_mem_info = &cmd->cmd_export_demura_buf.demura_mem_info;
   SDMCompServiceDemuraBufInfo demura_buf_info = {};
+  int demura_enabled = 0;
+
+  SDMCompDebugHandler *sdm_comp_dbg_handler =
+                       static_cast<SDMCompDebugHandler *>(SDMCompDebugHandler::Get());
+  sdm_comp_dbg_handler->GetProperty(ENABLE_DEMURA, &demura_enabled);
+
+  if (!demura_enabled) {
+    DLOGI("demura is not enabled on TVM");
+    return;
+  }
 
   DLOGI("hfc mem handle :%d", demura_mem_info->hfc_mem_hdl);
 
