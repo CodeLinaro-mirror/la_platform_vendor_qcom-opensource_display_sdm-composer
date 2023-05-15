@@ -98,16 +98,10 @@ cleanup:
 }
 
 int SDMCompDisplayBuiltIn::Deinit() {
-  DisplayConfigFixedInfo fixed_info = {};
-  display_intf_->GetConfig(&fixed_info);
-  DisplayError error = kErrorNone;
-
-  if (!fixed_info.is_cmdmode) {
-    error = display_intf_->Flush(&layer_stack_);
-    if (error != kErrorNone) {
-      DLOGE("Flush failed. Error = %d", error);
-      return -EINVAL;
-    }
+  DisplayError error = display_intf_->Flush(&layer_stack_);
+  if (error != kErrorNone) {
+    DLOGE("Flush failed. Error = %d", error);
+    return -EINVAL;
   }
 
   DestroyLayerSet();
