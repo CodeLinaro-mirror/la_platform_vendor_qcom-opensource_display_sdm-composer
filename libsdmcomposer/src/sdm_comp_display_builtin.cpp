@@ -99,7 +99,7 @@ cleanup:
 
 int SDMCompDisplayBuiltIn::Deinit() {
   DisplayError error = display_intf_->Flush(&layer_stack_);
-  if (error != kErrorNone) {
+  if (error != kErrorNone && error != kErrorPermission) {
     DLOGE("Flush failed. Error = %d", error);
     return -EINVAL;
   }
