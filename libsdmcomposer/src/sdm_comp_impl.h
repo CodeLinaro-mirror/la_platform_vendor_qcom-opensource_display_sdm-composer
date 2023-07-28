@@ -24,7 +24,7 @@
 
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -129,6 +129,8 @@ class SDMCompImpl : public SDMCompInterface, SDMCompServiceCbIntf {
   SDMCompServiceDispConfigs disp_configs_[kSDMCompDisplayTypeMax] = {};
   std::map<SDMCompServiceEvents, SDMCompDisplayType> pending_events_ = {};
   std::shared_ptr<SDMCompIPCImpl> ipc_intf_;
+  bool first_commit_ = true;
+  int rc_enabled_ = 0;
 };
 
 }  // namespace sdm

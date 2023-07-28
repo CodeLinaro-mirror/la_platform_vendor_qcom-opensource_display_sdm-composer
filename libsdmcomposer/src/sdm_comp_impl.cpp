@@ -24,7 +24,7 @@
 
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -67,6 +67,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "core/ipc_interface.h"
 #include "vm_interface.h"
 #include "private/generic_payload.h"
+#include "sdm_comp_debugger.h"
 
 #define __CLASS__ "SDMCompImpl"
 
@@ -107,6 +108,11 @@ int SDMCompImpl::Init() {
     return -EINVAL;
   }
   ref_count_++;
+
+  SDMCompDebugHandler *sdm_comp_dbg_handler =
+                       static_cast<SDMCompDebugHandler *>(SDMCompDebugHandler::Get());
+  sdm_comp_dbg_handler->GetProperty(ENABLE_ROUNDED_CORNER, &rc_enabled_);
+  DLOGI("RC status: %d", rc_enabled_);
 
   return 0;
 }
@@ -211,6 +217,8 @@ int SDMCompImpl::DestroyDisplay(Handle disp_hnd) {
       display_builtin_[disp_type] = nullptr;
     }
   }
+  first_commit_ = true;
+
   return 0;
 }
 
@@ -235,6 +243,20 @@ int SDMCompImpl::ShowBuffer(Handle disp_hnd, BufferHandle *buf_handle, int32_t *
   }
 
   SDMCompDisplayBuiltIn *sdm_comp_display = reinterpret_cast<SDMCompDisplayBuiltIn *>(disp_hnd);
+
+  // RC resources available after first cycle so enable RC need two commits.
+  if(rc_enabled_ && first_commit_) {
+    sdm_comp_display->ShowBuffer(buf_handle, retire_fence);
+    int ret = buffer_sync_handler_.SyncWait(*retire_fence);
+    if (ret) {
+      DLOGW("syncwait failed err:%d", ret);
+    }
+
+    close(*retire_fence);
+    close(buf_handle->consumer_fence_fd);
+    first_commit_ = false;
+  }
+
   return sdm_comp_display->ShowBuffer(buf_handle, retire_fence);
 }
 
