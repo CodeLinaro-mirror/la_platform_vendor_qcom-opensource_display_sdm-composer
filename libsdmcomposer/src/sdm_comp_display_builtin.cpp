@@ -98,16 +98,10 @@ cleanup:
 }
 
 int SDMCompDisplayBuiltIn::Deinit() {
-  DisplayConfigFixedInfo fixed_info = {};
-  display_intf_->GetConfig(&fixed_info);
-  DisplayError error = kErrorNone;
-
-  if (!fixed_info.is_cmdmode) {
-    error = display_intf_->Flush(&layer_stack_);
-    if (error != kErrorNone) {
-      DLOGE("Flush failed. Error = %d", error);
-      return -EINVAL;
-    }
+  DisplayError error = display_intf_->Flush(&layer_stack_);
+  if (error != kErrorNone && error != kErrorPermission) {
+    DLOGE("Flush failed. Error = %d", error);
+    return -EINVAL;
   }
 
   DestroyLayerSet();
@@ -360,15 +354,24 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
     return -EINVAL;
   }
 
+  Layer *layer = layer_set_.at(0);
+  layer->input_buffer.planes[0].fd = buf_handle->fd;
+  layer->input_buffer.planes[0].stride = buf_handle->stride_in_bytes;
+  layer->input_buffer.handle_id = buf_handle->buffer_id;
+  layer->input_buffer.buffer_id = buf_handle->buffer_id;
+
   if (cached_buf_handle_.width == buf_handle->width &&
     cached_buf_handle_.height == buf_handle->height &&
     cached_buf_handle_.aligned_width == buf_handle->aligned_width &&
     cached_buf_handle_.aligned_height == buf_handle->aligned_height &&
     cached_buf_handle_.format == buf_handle->format &&
-    cached_buf_handle_.src_crop == buf_handle->src_crop)
+    cached_buf_handle_.src_crop == buf_handle->src_crop) {
+    layer_stack_.layers.clear();
+    for (auto &it : layer_set_)
+      layer_stack_.layers.push_back(it);
     return 0;
+  }
 
-  Layer *layer = layer_set_.at(0);
   BufferFormat buf_format = GetSDMCompFormat(layer->input_buffer.format);
   LayerRect src_crop = LayerRect(buf_handle->src_crop.left, buf_handle->src_crop.top,
                                  buf_handle->src_crop.right, buf_handle->src_crop.bottom);
@@ -378,10 +381,6 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
   layer->input_buffer.unaligned_width = buf_handle->width;
   layer->input_buffer.unaligned_height = buf_handle->height;
   layer->input_buffer.format = GetSDMFormat(buf_handle->format);
-  layer->input_buffer.planes[0].fd = buf_handle->fd;
-  layer->input_buffer.planes[0].stride = buf_handle->stride_in_bytes;
-  layer->input_buffer.handle_id = buf_handle->buffer_id;
-  layer->input_buffer.buffer_id = buf_handle->buffer_id;
   layer->frame_rate = variable_info_.fps;
   layer->blending = kBlendingPremultiplied;
   layer->src_rect = LayerRect(0, 0, buf_handle->width, buf_handle->height);
