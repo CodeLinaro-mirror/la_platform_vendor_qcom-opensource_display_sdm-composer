@@ -100,6 +100,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   std::map<ColorPrimaries, TransferMap> color_mode_map_ = {};
   float min_panel_brightness_ = 0.0f;
   bool validated_ = false;
+  bool first_commit_ = true;
   std::vector<Layer *> layer_set_ = {};
   BufferHandle cached_buf_handle_;
 };
