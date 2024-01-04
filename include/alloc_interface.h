@@ -27,6 +27,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef __ALLOC_INTERFACE_H__
 #define __ALLOC_INTERFACE_H__
 
@@ -55,6 +61,7 @@ struct AllocData {
     union {
       struct {
         uint32_t trusted_ui : 1;  //!< Denotes buffer to be allocated from trusted ui heap.
+        uint32_t tui_demura : 2;  //!< Denotes buffer to be allocated from trusted ui demura heap.
       };
       uint64_t hints;
     };
