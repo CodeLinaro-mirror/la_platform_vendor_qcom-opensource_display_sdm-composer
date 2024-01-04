@@ -1,4 +1,4 @@
-SDM_PATH := ${WORKSPACE}/display/hardware/qcom/display/sdm
+SDM_PATH := ${WORKSPACE}/display/vendor/qcom/opensource/display-core/sdm
 SDM_COMP_PATH := ${WORKSPACE}/display/vendor/qcom/opensource/display/sdm-composer
 
 AM_CPPFLAGS += "-I$(SDM_PATH)/include"
