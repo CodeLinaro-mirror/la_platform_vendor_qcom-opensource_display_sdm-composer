@@ -1,7 +1,7 @@
-HQD_PATH := ${WORKSPACE}/display/hardware/qcom/display
+DISPLAY_CORE_PATH := ${WORKSPACE}/display/vendor/qcom/opensource/display-core
 
-AM_CPPFLAGS += "-I$(HQD_PATH)/sdm/include"
-AM_CPPFLAGS += "-I$(HQD_PATH)/include"
+AM_CPPFLAGS += "-I$(DISPLAY_CORE_PATH)/sdm/include"
+AM_CPPFLAGS += "-I$(DISPLAY_CORE_PATH)/include"
 AM_CPPFLAGS += "-I${WORKSPACE}/display/vendor/qcom/opensource/commonsys-intf/display/include/"
 
 c_sources = formats.cpp
