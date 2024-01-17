@@ -110,6 +110,8 @@ int SDMCompDisplayBuiltIn::Deinit() {
     DLOGE("Display destroy failed. Error = %d", error);
     return -EINVAL;
   }
+  first_commit_ = true;
+
   return 0;
 }
 
@@ -185,7 +187,11 @@ int SDMCompDisplayBuiltIn::ShowBuffer(BufferHandle *buf_handle, int32_t *retire_
       DLOGW("Prepare failed. Error = %d", error);
       return -EINVAL;
     }
-    validated_ = true;
+
+    // RC resources available after first cycle so enable skip_validate from 2nd cycle
+    if (!first_commit_) {
+      validated_ = true;
+    }
   }
 
   DisplayError error = display_intf_->Commit(&layer_stack_);
@@ -196,6 +202,7 @@ int SDMCompDisplayBuiltIn::ShowBuffer(BufferHandle *buf_handle, int32_t *retire_
   Layer *layer = layer_stack_.layers.at(0);
   *retire_fence = Fence::Dup(layer_stack_.retire_fence);
   buf_handle->consumer_fence_fd = Fence::Dup(layer->input_buffer.release_fence);
+  first_commit_ = false;
 
   return 0;
 }
