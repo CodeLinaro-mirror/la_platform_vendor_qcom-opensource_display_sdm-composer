@@ -80,7 +80,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define __CLASS__ "SDMCompService"
 
-#define DISPLAY_SERVICE_FILE "display@.service"
+#define DISPLAY_SERVICE_FILE_WITH_PARAM "display@.service"
+#define DISPLAY_SERVICE_FILE_NO_PARAM "display.service"
 #define SYSTEMD_ESCAPE_BIN "/bin/systemd-escape"
 
 namespace sdm {
@@ -444,7 +445,12 @@ void SDMCompService::HandleSetPanelBootParams(const struct qrtr_packet &qrtr_pkt
 
   DLOGI("panel_boot_param_string %s", cmd_set_panel_boot_param->panel_boot_string);
 
-  int ret = LoadModule(DISPLAY_SERVICE_FILE, cmd_set_panel_boot_param->panel_boot_string);
+  int ret = 0;
+  std::string panel_boot_str(cmd_set_panel_boot_param->panel_boot_string);
+  if (!panel_boot_str.empty())
+    ret = LoadModule(DISPLAY_SERVICE_FILE_WITH_PARAM, panel_boot_str);
+  else
+    ret = LoadModule(DISPLAY_SERVICE_FILE_NO_PARAM, panel_boot_str);
   if (ret != 0) {
     DLOGE("Failed loading kernel module %d", ret);
     rsp->status = -EINVAL;
