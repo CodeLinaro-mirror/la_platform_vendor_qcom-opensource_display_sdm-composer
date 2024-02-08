@@ -26,7 +26,11 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 #include <core/buffer_allocator.h>
 #include <utils/constants.h>
 #include <utils/debug.h>
@@ -140,6 +144,36 @@ void SDMCompBufferAllocator::GetAlignedWidthAndHeight(int width, int height,
 
   *aligned_width = ALIGN(width, 32);
   *aligned_height = ALIGN(height, 32);
+}
+
+int SDMCompBufferAllocator::SetBufferInfo(LayerBufferFormat format, int *target,
+                                          uint64_t *flags) {
+  return 0;
+}
+int SDMCompBufferAllocator::GetAlignedWidthAndHeight(int width, int height,
+                                                     int format,
+                                                     uint32_t alloc_type,
+                                                     int *aligned_width,
+                                                     int *aligned_height) {
+  return 0;
+}
+bool SDMCompBufferAllocator::GetSDMColorSpace(const int int_dataspace,
+                                              QtiDataspace *dataspace) {
+  return false;
+}
+LayerBufferFormat
+SDMCompBufferAllocator::GetSDMFormat(const int32_t &source, const int32_t flags,
+                                     const int64_t compression_type) {
+  return kFormatInvalid;
+}
+DisplayError
+SDMCompBufferAllocator::ColorMetadataToDataspace(Dataspace ds,
+                                                 uint32_t *int_dataspace) {
+  return kErrorNone;
+}
+int32_t
+SDMCompBufferAllocator::TranslateFromLegacyDataspace(const int32_t &legacy_ds) {
+  return 0;
 }
 
 }  // namespace sdm
