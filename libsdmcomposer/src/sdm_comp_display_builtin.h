@@ -29,7 +29,7 @@
 
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -103,6 +103,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   bool first_commit_ = true;
   std::vector<Layer *> layer_set_ = {};
   BufferHandle cached_buf_handle_;
+  Layer *demura_layer_ = nullptr;
 };
 
 }  // namespace sdm
