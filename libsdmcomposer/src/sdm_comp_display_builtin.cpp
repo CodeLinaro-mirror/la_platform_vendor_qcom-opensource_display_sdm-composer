@@ -29,7 +29,7 @@
 
 /*
 * Changes from Qualcomm Innovation Center are provided under the following license:
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -188,9 +188,22 @@ int SDMCompDisplayBuiltIn::ShowBuffer(BufferHandle *buf_handle, int32_t *retire_
       return -EINVAL;
     }
 
+    // Cache layer, if demura is configured, demura layer will be created in Prepare() function
+    demura_layer_ = nullptr;
+    for (auto &layer : layer_stack_.layers) {
+      if (layer->flags.is_demura) {
+        DLOGI("Demura layer is present");
+        demura_layer_ = layer;
+      }
+    }
+
     // RC resources available after first cycle so enable skip_validate from 2nd cycle
     if (!first_commit_) {
       validated_ = true;
+    }
+  } else {
+    if (demura_layer_ != nullptr) {
+      layer_stack_.layers.push_back(demura_layer_);
     }
   }
 
