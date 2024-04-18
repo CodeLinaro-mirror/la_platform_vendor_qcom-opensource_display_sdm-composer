@@ -404,6 +404,8 @@ void SDMCompImpl::HandlePendingEvents() {
           DLOGI("Setting display config idx %d, WxH %dx%d, fps %d, %s panel for display type %d",
                 config_idx, variable_info.x_pixels, variable_info.y_pixels, variable_info.fps,
                 disp_configs_[display_type].smart_panel ? "cmdmode" : "videomode", display_type);
+          display_builtin_[display_type]->SetMixerConfig(disp_configs_[display_type].mixer_width,
+                                                         disp_configs_[display_type].mixer_height);
           break;
         }
       }

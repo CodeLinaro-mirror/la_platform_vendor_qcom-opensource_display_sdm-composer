@@ -158,13 +158,32 @@ int SDMCompDisplayBuiltIn::SetDisplayConfig(int config_idx) {
   return 0;
 }
 
+void SDMCompDisplayBuiltIn::SetFrameBufferConfig() {
+  DisplayConfigVariableInfo fb_config;
+  display_intf_->GetFrameBufferConfig(&fb_config);
+  fb_config.x_pixels = mixer_config_.width;
+  fb_config.y_pixels = mixer_config_.height;
+  display_intf_->SetFrameBufferConfig(fb_config);
+}
+
+void SDMCompDisplayBuiltIn::SetMixerConfig(uint32_t width, uint32_t height) {
+  mixer_config_.width = width;
+  mixer_config_.height = height;
+  SetFrameBufferConfig();
+}
+
 int SDMCompDisplayBuiltIn::GetDisplayAttributes(SDMCompDisplayAttributes *display_attributes) {
   if (!display_attributes) {
     return -EINVAL;
   }
 
-  display_attributes->x_res = variable_info_.x_pixels;
-  display_attributes->y_res = variable_info_.y_pixels;
+  // 1. When DS is not enabled, Layers are to be rendered at display resolution, which is same as
+  //    LM config.
+  // 2. When DS is enabled (for AI scaler), layers are to be rendered at resolution less than
+  //    display resolution. In this scenario, LM is reconfigured to new resolution.
+  // So in both scenarios, mixer attributes can be considered as Display attributes.
+  display_attributes->x_res = mixer_config_.width;
+  display_attributes->y_res = mixer_config_.height;
   display_attributes->x_dpi = variable_info_.x_dpi;
   display_attributes->y_dpi = variable_info_.y_dpi;
   display_attributes->vsync_period = variable_info_.vsync_period_ns;
@@ -413,6 +432,8 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
   if (IsValid(src_crop)) {
     layer->src_rect = Intersection(src_crop, layer->src_rect);
   }
+  layer->dst_rect.right = (float)mixer_config_.width;
+  layer->dst_rect.bottom = (float)mixer_config_.height;
 
   DLOGI("WxHxF %dx%dx%d Crop[LTRB] [%.0f %.0f %.0f %.0f]", layer->input_buffer.width,
         layer->input_buffer.height, layer->input_buffer.format, layer->src_rect.left,
