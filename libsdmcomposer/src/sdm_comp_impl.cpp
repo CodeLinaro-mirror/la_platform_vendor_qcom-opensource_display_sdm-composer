@@ -377,15 +377,29 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
 }
 
 void SDMCompImpl::HandlePendingEvents() {
+  int counter = 0, size = pending_events_.size();
   for (auto pending_event : pending_events_) {
     SDMCompDisplayType display_type = pending_event.second;
+
     switch (pending_event.first) {
     case kEventSetDisplayConfig: {
       uint32_t num_configs = 0;
       int err = display_builtin_[display_type]->GetNumVariableInfoConfigs(&num_configs);
+
+      DLOGI("DEBUG %s: For SetDisplayConfig to use config 0", __func__);
+      err = display_builtin_[display_type]->SetDisplayConfig(0);
+      if (err != 0) {
+        DLOGI("DEBUG %s: Failed to set display config to 0. Pls check", __func__);
+      }
+/*
       for (uint32_t config_idx = 0; config_idx < num_configs; config_idx++) {
+
         DisplayConfigVariableInfo variable_info = {};
+        DLOGI("RKM %s: CHECK WHERE THE CRASH IS - call GetDisplayConfig for config %d", __func__, config_idx);
         int err = display_builtin_[display_type]->GetDisplayConfig(config_idx, &variable_info);
+        DLOGI("RKM %s: CHECK WHERE THE CRASH IS - err %d config_idx %d",
+              __func__, err, config_idx);
+
         if (err == 0) {
           if (variable_info.h_total != disp_configs_[display_type].h_total ||
               variable_info.v_total != disp_configs_[display_type].v_total ||
@@ -393,25 +407,29 @@ void SDMCompImpl::HandlePendingEvents() {
               variable_info.smart_panel != disp_configs_[display_type].smart_panel) {
             continue;
           }
-          err = display_builtin_[display_type]->SetDisplayConfig(config_idx);
+          err = display_builtin_[display_type]->SetDisplayConfig(0);
           if (err != 0) {
             continue;
           }
+
           DLOGI("Setting display config idx %d, WxH %dx%d, fps %d, %s panel for display type %d",
-                config_idx, variable_info.x_pixels, variable_info.y_pixels, variable_info.fps,
+                __func__, config_idx, variable_info.x_pixels, variable_info.y_pixels, variable_info.fps,
                 disp_configs_[display_type].smart_panel ? "cmdmode" : "videomode", display_type);
           break;
         }
       }
+*/
     } break;
 
     case kEventSetPanelBrightness: {
+      DLOGI("RKM %s: CHECK WHERE THE CRASH IS - received kEventSetPanelBrightness", __func__);
       int err = display_builtin_[display_type]->SetPanelBrightness(panel_brightness_[display_type]);
-      DLOGI("SetPanelBrightness value %f on display type %d is %s", panel_brightness_[display_type],
+      DLOGI("RKM %s: SetPanelBrightness value %f on display type %d is %s", __func__, panel_brightness_[display_type],
              display_type, err ? "failed" : "successful");
     } break;
 
     default:
+      DLOGI("RKM %s: Received unknown command - %d", __func__, pending_event.first);
       break;
     }
   }
