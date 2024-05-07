@@ -16,7 +16,7 @@ AM_MAINTAINER_MODE
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 #AC_SUBST([COMMON_CFLAGS], [-Wall -Werror -Wno-sign-conversion -Wconversion ])
-AC_SUBST([AM_CPPFLAGS], [--std=c++11])
+AC_SUBST([AM_CPPFLAGS], [--std=c++14])
 
 AC_ARG_WITH(sanitized-headers,
    AS_HELP_STRING([--with-sanitized-headers=DIR],
