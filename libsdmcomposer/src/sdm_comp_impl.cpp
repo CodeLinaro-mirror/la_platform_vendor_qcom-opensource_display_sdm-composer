@@ -382,6 +382,7 @@ void SDMCompImpl::HandlePendingEvents() {
     switch (pending_event.first) {
     case kEventSetDisplayConfig: {
       uint32_t num_configs = 0;
+      bool foundConfig = false;
       int err = display_builtin_[display_type]->GetNumVariableInfoConfigs(&num_configs);
       for (uint32_t config_idx = 0; config_idx < num_configs; config_idx++) {
         DisplayConfigVariableInfo variable_info = {};
@@ -393,14 +394,26 @@ void SDMCompImpl::HandlePendingEvents() {
               variable_info.smart_panel != disp_configs_[display_type].smart_panel) {
             continue;
           }
+
           err = display_builtin_[display_type]->SetDisplayConfig(config_idx);
           if (err != 0) {
             continue;
           }
+
+          foundConfig = true;
           DLOGI("Setting display config idx %d, WxH %dx%d, fps %d, %s panel for display type %d",
                 config_idx, variable_info.x_pixels, variable_info.y_pixels, variable_info.fps,
                 disp_configs_[display_type].smart_panel ? "cmdmode" : "videomode", display_type);
           break;
+        }
+      }
+
+      // TODO(user): Need to fix why config not coming properly
+      if (!foundConfig) {
+        DLOGW("Failed to find the current config, set the default config as 0");
+        err = display_builtin_[display_type]->SetDisplayConfig(0);
+        if (err != 0) {
+          DLOGW("Failed to set config to secondary vm");
         }
       }
     } break;
