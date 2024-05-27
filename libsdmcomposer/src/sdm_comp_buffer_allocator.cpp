@@ -59,6 +59,11 @@ int SDMCompBufferAllocator::AllocateBuffer(BufferInfo *buffer_info) {
   data.format = GetSDMCompFormat(buffer_config.format);
   data.uncached = true;
   data.usage_hints.trusted_ui = true;
+  if (buffer_config.tui_demura) {
+    data.usage_hints.trusted_ui = false;
+    data.usage_hints.tui_demura = true;
+  }
+
   int error = alloc_intf->AllocBuffer(&data, buffer_handle);
   if (error != 0) {
     DLOGE("Allocation failed WxHxF %dx%dx%d, uncached %d", data.width, data.height, data.format,
