@@ -28,7 +28,7 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -75,8 +75,9 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   int SetDisplayConfig(int config_idx);
   void SetFrameBufferConfig();
   void SetMixerConfig(uint32_t width, uint32_t height);
+  int SetABCMode(std::string mode_name);
 
- private:
+private:
   void CreateLayerSet();
   void DestroyLayerSet();
   int PrepareLayerStack(BufferHandle *buf_handle);
@@ -107,6 +108,8 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   std::vector<Layer *> layer_set_ = {};
   BufferHandle cached_buf_handle_;
   Layer *demura_layer_ = nullptr;
+  Layer *abc_main_layer_ = nullptr;
+  Layer *abc_udc_layer_ = nullptr;
 };
 
 }  // namespace sdm

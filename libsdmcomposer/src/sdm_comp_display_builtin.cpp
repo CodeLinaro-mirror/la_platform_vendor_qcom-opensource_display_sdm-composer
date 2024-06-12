@@ -28,7 +28,7 @@
 */
 
 /*
-* Changes from Qualcomm Innovation Center are provided under the following license:
+* Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
@@ -215,10 +215,22 @@ int SDMCompDisplayBuiltIn::ShowBuffer(BufferHandle *buf_handle, int32_t *retire_
 
     // Cache layer, if demura is configured, demura layer will be created in Prepare() function
     demura_layer_ = nullptr;
+    abc_udc_layer_ = nullptr;
+    abc_main_layer_ = nullptr;
     for (auto &layer : layer_stack_.layers) {
       if (layer->flags.is_demura) {
         DLOGI("Demura layer is present");
         demura_layer_ = layer;
+      }
+
+      if (layer->flags.is_abc) {
+        if (abc_main_layer_ != nullptr) {
+          DLOGI("ABC UDC layer is present");
+          abc_udc_layer_ = layer;
+        } else {
+          DLOGI("ABC main layer is present");
+          abc_main_layer_ = layer;
+        }
       }
     }
 
@@ -229,6 +241,12 @@ int SDMCompDisplayBuiltIn::ShowBuffer(BufferHandle *buf_handle, int32_t *retire_
   } else {
     if (demura_layer_ != nullptr) {
       layer_stack_.layers.push_back(demura_layer_);
+    }
+    if (abc_main_layer_ != nullptr) {
+      layer_stack_.layers.push_back(abc_main_layer_);
+    }
+    if (abc_udc_layer_ != nullptr) {
+      layer_stack_.layers.push_back(abc_udc_layer_);
     }
   }
 
@@ -494,6 +512,19 @@ int SDMCompDisplayBuiltIn::SetMinPanelBrightness(float min_brightness) {
   }
   min_panel_brightness_ = min_brightness;
   return 0;
+}
+
+int SDMCompDisplayBuiltIn::SetABCMode(std::string mode_name) {
+  DLOGV("Display ID: %" PRId64 " mode name: %s", display_id_,
+        mode_name.c_str());
+  DisplayError error = display_intf_->SetABCMode(mode_name);
+
+  if (error != kErrorNone) {
+    DLOGE("Failed to Set ABC Mode, error = %d", error);
+    return kErrorParameters;
+  }
+
+  return kErrorNone;
 }
 
 }  // namespace sdm
