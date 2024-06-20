@@ -27,6 +27,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <string.h>
@@ -231,6 +237,8 @@ int DmaBufAllocator::CloneBuffer(const CloneData &data, BufferHandle *buffer_han
 void DmaBufAllocator::GetHeapInfo(AllocData *data, std::string *heap_name) {
   if (data->usage_hints.trusted_ui) {
     *heap_name = "qcom,tui";
+  } else if (data->usage_hints.tui_demura) {
+    *heap_name = "qcom,tui_demura";
   }
 }
 
