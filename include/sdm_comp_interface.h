@@ -111,6 +111,11 @@ struct SDMCompDisplayAttributes {
   bool smart_panel = false;   //!< Speficies the panel is video mode or command mode
 };
 
+struct SDMCompMixerConfig {
+  uint32_t width = 0;
+  uint32_t height = 0;
+};
+
 struct ColorMode {
   //<! Blend-Space gamut
   ColorPrimaries gamut = ColorPrimaries_Max;
