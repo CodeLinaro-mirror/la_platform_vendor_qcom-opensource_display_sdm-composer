@@ -83,6 +83,8 @@ struct SDMCompServiceDispConfigs {
   uint32_t v_total = 0;
   uint32_t fps = 0;
   bool smart_panel = false;
+  uint32_t mixer_width = 0;
+  uint32_t mixer_height = 0;
 };
 
 struct SDMCompServiceDemuraBufInfo {

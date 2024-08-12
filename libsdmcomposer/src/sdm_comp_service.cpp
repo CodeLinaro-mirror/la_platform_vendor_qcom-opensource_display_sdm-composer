@@ -413,6 +413,8 @@ void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt,
       disp_configs.v_total = cmd_disp_configs->v_total;
       disp_configs.fps = cmd_disp_configs->fps;
       disp_configs.smart_panel = cmd_disp_configs->smart_panel;
+      disp_configs.mixer_width = cmd_disp_configs->mixer_width;
+      disp_configs.mixer_height = cmd_disp_configs->mixer_height;
       int err = callback->OnEvent(kEventSetDisplayConfig, sdm_comp_disp_type, &disp_configs);
       rsp->status = err;
     }

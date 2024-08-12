@@ -73,6 +73,8 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   int GetNumVariableInfoConfigs(uint32_t *count);
   int GetDisplayConfig(int config_idx, DisplayConfigVariableInfo *variable_info);
   int SetDisplayConfig(int config_idx);
+  void SetFrameBufferConfig();
+  void SetMixerConfig(uint32_t width, uint32_t height);
 
  private:
   void CreateLayerSet();
@@ -86,6 +88,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   CoreInterface *core_intf_ = NULL;
   DisplayInterface *display_intf_ = NULL;
   DisplayConfigVariableInfo variable_info_ = {};
+  SDMCompMixerConfig mixer_config_ = {};
   CallbackInterface *callback_ = NULL;
   SDMCompDisplayType display_type_;
   int display_id_ = -1;
