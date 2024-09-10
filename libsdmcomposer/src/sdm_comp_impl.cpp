@@ -414,6 +414,8 @@ void SDMCompImpl::HandlePendingEvents() {
       if (!foundConfig) {
         DLOGW("Failed to find the current config, set the default config as 0");
         err = display_builtin_[display_type]->SetDisplayConfig(0);
+        display_builtin_[display_type]->SetMixerConfig(disp_configs_[display_type].mixer_width,
+                                                       disp_configs_[display_type].mixer_height);
         if (err != 0) {
           DLOGW("Failed to set config to secondary vm");
         }
