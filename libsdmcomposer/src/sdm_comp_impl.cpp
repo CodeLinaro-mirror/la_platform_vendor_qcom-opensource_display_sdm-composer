@@ -401,6 +401,14 @@ void SDMCompImpl::HandlePendingEvents() {
                 disp_configs_[display_type].abc_mode.c_str());
         }
       }
+
+      // Set AI Scaler mode ID
+      err = display_builtin_[display_type]->SetAIScalerMode(
+          disp_configs_[display_type].ai_scaler_mode_id);
+      if (err != 0) {
+        DLOGI("Failed to set AI Scaler mode ID to %d",
+              disp_configs_[display_type].ai_scaler_mode_id);
+      }
     } break;
 
     case kEventSetPanelBrightness: {

@@ -387,6 +387,7 @@ void SDMCompService::HandleSetDisplayConfigs(const struct qrtr_packet &qrtr_pkt,
       disp_configs.mixer_width = cmd_disp_configs->mixer_width;
       disp_configs.mixer_height = cmd_disp_configs->mixer_height;
       disp_configs.abc_mode = std::string(cmd_disp_configs->abc_mode);
+      disp_configs.ai_scaler_mode_id = cmd_disp_configs->ai_scaler_mode_id;
       int err = callback->OnEvent(kEventSetDisplayConfig, sdm_comp_disp_type, &disp_configs);
       rsp->status = err;
     }
