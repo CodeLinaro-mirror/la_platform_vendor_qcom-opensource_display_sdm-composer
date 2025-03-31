@@ -58,6 +58,7 @@ struct SDMCompServiceDispConfigs {
   uint32_t mixer_width = 0;
   uint32_t mixer_height = 0;
   std::string abc_mode = "";
+  uint32_t ai_scaler_mode_id = 0;
 };
 
 struct SDMCompServiceDemuraBufInfo {

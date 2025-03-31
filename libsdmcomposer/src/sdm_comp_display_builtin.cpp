@@ -527,4 +527,16 @@ int SDMCompDisplayBuiltIn::SetABCMode(std::string mode_name) {
   return kErrorNone;
 }
 
+int SDMCompDisplayBuiltIn::SetAIScalerMode(uint32_t mode_id) {
+  DLOGV("Display ID: %" PRId64 " Mode ID: %d", display_id_, mode_id);
+  DisplayError error = display_intf_->SetAIScalerMode(mode_id);
+
+  if (error != kErrorNone) {
+    DLOGE("Failed to Set AI Scaler Mode ID, error = %d", error);
+    return kErrorParameters;
+  }
+
+  return kErrorNone;
+}
+
 }  // namespace sdm
