@@ -24,7 +24,7 @@
 
 /*
 Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -350,6 +350,10 @@ int SDMCompImpl::OnEvent(SDMCompServiceEvents event, ...) {
 void SDMCompImpl::HandlePendingEvents() {
   for (auto pending_event : pending_events_) {
     SDMCompDisplayType display_type = pending_event.second;
+    if (!display_builtin_[display_type]) {
+      continue;
+    }
+
     switch (pending_event.first) {
     case kEventSetDisplayConfig: {
       uint32_t num_configs = 0;
