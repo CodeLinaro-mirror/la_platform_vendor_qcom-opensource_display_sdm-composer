@@ -489,7 +489,7 @@ DisplayError SDMCompDisplayBuiltIn::HandleEvent(DisplayEvent event) {
 
 int SDMCompDisplayBuiltIn::SetPanelBrightness(float brightness_level) {
   if (brightness_level < min_panel_brightness_) {
-    DLOGE("brightness level is invalid!! brightness_level %f, min_panel_brightness %f",
+    DLOGW("brightness level is invalid!! brightness_level %f, min_panel_brightness %f",
           brightness_level, min_panel_brightness_);
     return -EINVAL;
   }
