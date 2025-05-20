@@ -76,6 +76,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   void SetFrameBufferConfig();
   void SetMixerConfig(uint32_t width, uint32_t height);
   int SetABCMode(std::string mode_name);
+  int SetAIScalerMode(uint32_t mode_id);
 
 private:
   void CreateLayerSet();

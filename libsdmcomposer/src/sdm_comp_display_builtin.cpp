@@ -489,7 +489,7 @@ DisplayError SDMCompDisplayBuiltIn::HandleEvent(DisplayEvent event) {
 
 int SDMCompDisplayBuiltIn::SetPanelBrightness(float brightness_level) {
   if (brightness_level < min_panel_brightness_) {
-    DLOGE("brightness level is invalid!! brightness_level %f, min_panel_brightness %f",
+    DLOGW("brightness level is invalid!! brightness_level %f, min_panel_brightness %f",
           brightness_level, min_panel_brightness_);
     return -EINVAL;
   }
@@ -521,6 +521,18 @@ int SDMCompDisplayBuiltIn::SetABCMode(std::string mode_name) {
 
   if (error != kErrorNone) {
     DLOGE("Failed to Set ABC Mode, error = %d", error);
+    return kErrorParameters;
+  }
+
+  return kErrorNone;
+}
+
+int SDMCompDisplayBuiltIn::SetAIScalerMode(uint32_t mode_id) {
+  DLOGV("Display ID: %" PRId64 " Mode ID: %d", display_id_, mode_id);
+  DisplayError error = display_intf_->SetAIScalerMode(mode_id);
+
+  if (error != kErrorNone) {
+    DLOGE("Failed to Set AI Scaler Mode ID, error = %d", error);
     return kErrorParameters;
   }
 
