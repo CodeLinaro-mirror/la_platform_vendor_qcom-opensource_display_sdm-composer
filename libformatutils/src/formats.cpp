@@ -62,6 +62,8 @@ float GetBpp(BufferFormat format) {
     case kBufferFormatRGBA4444:
     case kBufferFormatBGR565Ubwc:
       return 2.0f;
+    case kBufferFormatNV12Y:
+      return 1.0f;
     default:
       return 0.0f;
   }
@@ -121,6 +123,8 @@ LayerBufferFormat GetSDMFormat(BufferFormat buf_format) {
       return kFormatRGBA1010102Ubwc;
     case kBufferFormatRGBX1010102Ubwc:
       return kFormatRGBX1010102Ubwc;
+    case kBufferFormatNV12Y:
+      return kFormatNV12Y;
     default:
       return kFormatInvalid;
   }
@@ -178,6 +182,8 @@ BufferFormat GetSDMCompFormat(LayerBufferFormat sdm_format) {
       return kBufferFormatRGBA1010102Ubwc;
     case kFormatRGBX1010102Ubwc:
       return kBufferFormatRGBX1010102Ubwc;
+    case kFormatNV12Y:
+      return kBufferFormatNV12Y;
     default:
       return kBufferFormatInvalid;
   }
