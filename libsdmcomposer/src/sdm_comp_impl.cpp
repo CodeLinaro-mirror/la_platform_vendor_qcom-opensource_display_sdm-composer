@@ -406,12 +406,16 @@ void SDMCompImpl::HandlePendingEvents() {
         }
       }
 
-      // Set AI Scaler mode ID
-      err = display_builtin_[display_type]->SetAIScalerMode(
-          disp_configs_[display_type].ai_scaler_mode_id);
-      if (err != 0) {
-        DLOGI("Failed to set AI Scaler mode ID to %d",
-              disp_configs_[display_type].ai_scaler_mode_id);
+      // Set AI Scaler mode ID when AI Scaler is enabled
+      int ai_scaler_enabled = 0;
+      Debug::Get()->GetProperty(ENABLE_AI_SCALER_PROP, &ai_scaler_enabled);
+      if (ai_scaler_enabled) {
+        err = display_builtin_[display_type]->SetAIScalerMode(
+            disp_configs_[display_type].ai_scaler_mode_id);
+        if (err != 0) {
+          DLOGI("Failed to set AI Scaler mode ID to %d",
+                disp_configs_[display_type].ai_scaler_mode_id);
+        }
       }
     } break;
 
