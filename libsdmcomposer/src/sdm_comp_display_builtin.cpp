@@ -102,7 +102,7 @@ int SDMCompDisplayBuiltIn::Deinit() {
   display_intf_->GetConfig(&fixed_info);
   DisplayError error = kErrorNone;
 
-  if (!fixed_info.is_cmdmode) {
+  if (!fixed_info.is_cmdmode && !fixed_info.vhm_support) {
     error = display_intf_->Flush(&layer_stack_);
     if (error != kErrorNone && error != kErrorPermission) {
       DLOGE("Flush failed. Error = %d", error);
