@@ -24,7 +24,7 @@
 
 /*
 * Changes from Qualcomm Innovation Center are provided under the following license:
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -76,6 +76,7 @@ enum BufferFormat {
   kBufferFormatBGR565Ubwc,       //!< UBWC aligned BGR565 format
   kBufferFormatRGBA1010102Ubwc,  //!< UBWC aligned RGBA1010102 format
   kBufferFormatRGBX1010102Ubwc,  //!< UBWC aligned RGBX1010102 format
+  kBufferFormatNV12Y,            //!< DPU DMA mode format
 };
 
 struct Rect {
