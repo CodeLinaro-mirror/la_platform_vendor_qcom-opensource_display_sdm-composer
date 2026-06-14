@@ -152,7 +152,8 @@ void SDMCompBufferAllocator::GetAlignedWidthAndHeight(int width, int height,
 }
 
 int SDMCompBufferAllocator::SetBufferInfo(LayerBufferFormat format, int *target,
-                                          uint64_t *flags) {
+                                          uint64_t *flags,
+                                          uint64_t *pixel_format_modifier) {
   return 0;
 }
 int SDMCompBufferAllocator::GetAlignedWidthAndHeight(int width, int height,
@@ -168,7 +169,8 @@ bool SDMCompBufferAllocator::GetSDMColorSpace(const int int_dataspace,
 }
 LayerBufferFormat
 SDMCompBufferAllocator::GetSDMFormat(const int32_t &source, const int32_t flags,
-                                     const int64_t compression_type) {
+                                     const int64_t compression_type,
+                                     const uint64_t pixel_format_modifier) {
   return kFormatInvalid;
 }
 DisplayError
