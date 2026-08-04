@@ -439,8 +439,8 @@ int SDMCompDisplayBuiltIn::PrepareLayerStack(BufferHandle *buf_handle) {
   LayerRect src_crop = LayerRect(buf_handle->src_crop.left, buf_handle->src_crop.top,
                                  buf_handle->src_crop.right, buf_handle->src_crop.bottom);
 
-  layer->input_buffer.width = buf_handle->width;
-  layer->input_buffer.height = buf_handle->height;
+  layer->input_buffer.width = buf_handle->aligned_width;
+  layer->input_buffer.height = buf_handle->aligned_height;
   layer->input_buffer.unaligned_width = buf_handle->width;
   layer->input_buffer.unaligned_height = buf_handle->height;
   layer->input_buffer.format = GetSDMFormat(buf_handle->format);
