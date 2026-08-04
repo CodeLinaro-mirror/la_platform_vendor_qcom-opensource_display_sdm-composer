@@ -28,8 +28,8 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -55,7 +55,7 @@ class SDMCompDisplayBuiltIn : public DisplayEventHandler {
   virtual ~SDMCompDisplayBuiltIn() { }
 
   virtual DisplayError VSync(const DisplayEventVSync &vsync) { return kErrorNone; }
-  virtual DisplayError Refresh() { return kErrorNone; }
+  virtual DisplayError Refresh(RefreshType type) { return kErrorNone; }
   virtual DisplayError CECMessage(char *message) { return kErrorNone; }
   virtual DisplayError HistogramEvent(int source_fd, uint32_t blob_id) { return kErrorNone; }
   virtual DisplayError HandleEvent(DisplayEvent event);
